@@ -16,15 +16,15 @@ import java.net.URI;
 public class Parameters {
     // By default, we will connect to a standalone Pravega running on localhost.
     public static URI getControllerURI() {
-        return URI.create(getEnvVar("PRAVEGA_CONTROLLER", "tcp://localhost:9090"));
+        return URI.create(getEnvVar("PRAVEGA_CONTROLLER", "tls://pravega-controller.sdp.cluster1.sdp-demo.org:443"));
     }
 
     public static String getScope() {
-        return getEnvVar("PRAVEGA_SCOPE", "workshop-sample");
+        return getEnvVar("PRAVEGA_SCOPE", "nma");
     }
 
     public static String getStreamName() {
-        return getEnvVar("PRAVEGA_STREAM", "json-writer");
+        return getEnvVar("PRAVEGA_STREAM", "nma");
     }
 
     public static int getTargetRateEventsPerSec() {
@@ -36,7 +36,7 @@ public class Parameters {
     }
 
     public static String getDataFile() {
-        return getEnvVar("DATA_FILE", "earthquakes1970-2014.csv");
+        return getEnvVar("DATA_FILE", "metrics_23-03.csv");
     }
 
     public static String getRoutingKey() {
