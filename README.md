@@ -85,10 +85,26 @@ KEYCLOAK_SERVICE_ACCOUNT_FILE=${HOME}/keycloak.json
 PRAVEGA_CONTROLLER=tcp://<pravega controller>:9090
 PRAVEGA_SCOPE=workshop-samples
 PRAVEGA_STREAM=json-stream
+DATA_FILE=earthquakes1970-2014.csv
 ```
 - Save configuration and hit Run
 
-## Running [JSONWReader](/stream-readers/src/main/java/com/dellemc/oe/readers/JSONReader.java) from Intelij
+## Running [NMAJSONWriter](/stream-ingest/src/main/java/it/consulthink/oe/ingest/NMAJSONWriter.java) from Intelij
+
+- Set the following environment variables. This can be done by setting the IntelliJ run configurations.
+  (-> Go to run -> Edit Configurations -> Select NMAJSONWriter application and click + icon. Fill the details mentioned below screen. Add all below program environment variables.)
+```
+pravega_client_auth_method=Bearer
+pravega_client_auth_loadDynamic=true
+KEYCLOAK_SERVICE_ACCOUNT_FILE=${HOME}/keycloak.json
+PRAVEGA_CONTROLLER=tcp://<pravega controller>:9090
+PRAVEGA_SCOPE=workshop-samples
+PRAVEGA_STREAM=nma-input
+DATA_FILE=metrics_23-03.csv
+```
+- Save configuration and hit Run
+
+## Running [JSONReader](/stream-readers/src/main/java/com/dellemc/oe/readers/JSONReader.java) from Intelij
 
 - Set the following environment variables. This can be done by setting the IntelliJ run configurations.
 
@@ -106,7 +122,25 @@ pravega_client_auth_loadDynamic=true
 
 - Save configuration and hit Run
 
-## Running [JSONWReader](/stream-readers/src/main/java/com/dellemc/oe/readers/JSONReader.java) in Dell EMC SDP
+## Running [NMAJSONReader](/stream-readers/src/main/java/it/consulthink/oe/readers/NMAJSONReader.java) from Intelij
+
+- Set the following environment variables. This can be done by setting the IntelliJ run configurations.
+
+```
+pravega_client_auth_method=Bearer
+pravega_client_auth_loadDynamic=true
+```
+
+- set the following under parameters in Intelij
+```$xslt
+--controller tcp://<pravega controller>:9090
+--scope workshop-samples
+--input-stream nma-input
+```
+
+- Save configuration and hit Run
+
+## Running [JSONReader](/stream-readers/src/main/java/com/dellemc/oe/readers/JSONReader.java) in Dell EMC SDP
 
 -  You must make the Maven repo in SDP available to your development workstation.
 ```
@@ -136,24 +170,96 @@ helm upgrade --install --timeout 600s --wait \
     -f values/flink-json-reader.yaml
 ```
 
+## Running [NMAJSONReader](/stream-readers/src/main/java/it/consulthink/oe/readers/NMAJSONReader.java) in Dell EMC SDP
+
+-  You must make the Maven repo in SDP available to your development workstation.
+```
+kubectl port-forward service/repo 9092:80 --namespace workshop-samples
+```
+-   Set the environment variable for maven user and password.
+```
+export MAVEN_USER=desdp
+export MAVEN_PASSWORD=password
+```
+-   Build and publish your application JAR file. Make sure to replace the `release name` and `application values file` with appropriate values.
+```
+./gradlew publish
+helm upgrade --install --timeout 600s --wait \
+    <Release Name> \
+    charts/flink-app \
+    --namespace workshop-samples \
+    -f values/<application values file> 
+```
+
+Here is an example for building the json reader application by using Helm Chart.
+```
+helm upgrade --install --timeout 600s --wait \
+    nmareader \
+    charts/flink-app \
+    --namespace workshop-samples \
+    -f values/flink-nma-reader.yaml
+```
+
+
+## Running [PacketCountReader](/stream-processing/src/main/java/it/consulthink/oe/flink/packetcount/PacketCountReader.java) in Dell EMC SDP
+
+-  You must make the Maven repo in SDP available to your development workstation.
+```
+kubectl port-forward service/repo 9092:80 --namespace workshop-samples
+```
+-   Set the environment variable for maven user and password.
+```
+export MAVEN_USER=desdp
+export MAVEN_PASSWORD=password
+```
+-   Build and publish your application JAR file. Make sure to replace the `release name` and `application values file` with appropriate values.
+```
+./gradlew publish
+helm upgrade --install --timeout 600s --wait \
+    <Release Name> \
+    charts/flink-app \
+    --namespace workshop-samples \
+    -f values/<application values file> 
+```
+
+Here is an example for building the json reader application by using Helm Chart.
+```
+helm upgrade --install --timeout 600s --wait \
+    packetcountreader \
+    charts/flink-app \
+    --namespace workshop-samples \
+    -f values/flink-nma-process.yaml
+```
+
+
 ## About Samples
+
 -  `stream-ingest` shows how to ingest data into a Pravega stream.   
-``
-\workshop-samples\stream-ingest\src\main\java\com\dellemc\oe\ingest
-``  
-    1.  `JSONWriter` demonstrates streaming a JSON data which convert from CSV file.  
-    2.	`EventWriter` demonstrate streaming a String Event  
-    3.	`ImageWriter` demonstrate streaming ImagaeData as a JSON
+
+``\workshop-samples\stream-ingest\src\main\java\com\dellemc\oe\ingest``  
+    1. `JSONWriter` demonstrates streaming a JSON data which convert from CSV file.  
+    2. `EventWriter` demonstrate streaming a String Event  
+    3. `ImageWriter` demonstrate streaming ImagaeData as a JSON
+    
+``\workshop-samples\stream-ingest\src\main\java\it\consulthink\oe\ingest``  
+    1. `NMAJSONWriter` demonstrates streaming a NMA JSON data which convert from CSV file.  
 
 - `stream-processing` illustrates how to read from a Pravega stream and write to a different one.  
-``
-\workshop-samples\stream-processing\src\main\java\com\dellemc\oe\flink\wordcount
-``  
+
+``\workshop-samples\stream-processing\src\main\java\com\dellemc\oe\flink\wordcount``  
 This wordcount reads data from a stream written by EventWriter as a String and do some transformations and write to another stream.
 
+``\workshop-samples\stream-processing\src\main\java\it\consulthink\oe\flink\packetcount``  
+This packetcount reads data from a stream written by NMAJsonWriter and do some transformations and write to another stream.
+
 - `stream-readers` exemplifies how to read the data from a Pravega stream.  
+
 ``\workshop-samples\stream-readers\src\main\java\com\dellemc\oe\readers``  
     1.  `JSONReader` reads the data generated by `JSONWriter` and prints to standard output.
-    2.	`ImageReader` reads the data generated by `ImageWriter` and prints the image data.
-    3.	`FlinkSQLReader` reads the data generated by `JSONWriter` and converts to a SQL table source.
-    4.  `FlinkSQLJOINReader` reads the data generated by `JSONWriter` and uses SQL to join another table.
+    2. `ImageReader` reads the data generated by `ImageWriter` and prints the image data.
+    3. `FlinkSQLReader` reads the data generated by `JSONWriter` and converts to a SQL table source.
+    4. `FlinkSQLJOINReader` reads the data generated by `JSONWriter` and uses SQL to join another table.
+    
+``\workshop-samples\stream-readers\src\main\java\it\consulthink\oe\readers``  
+    1. `NMAJSONReader` reads the data generated by `NMAJSONWriter` and prints to standard output.
+

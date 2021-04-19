@@ -58,6 +58,13 @@ task scriptJSONReader(type: CreateStartScripts) {
     classpath = files(jar.archivePath) + sourceSets.main.runtimeClasspath
 }
 
+task scriptNMAJSONReader(type: CreateStartScripts) {
+    outputDir = file('build/scripts')
+    mainClassName = 'it.consulthink.oe.readers.NMAJSONReader'
+    applicationName = 'nmaJsonWriter'
+    classpath = files(jar.archivePath) + sourceSets.main.runtimeClasspath
+}
+
 task startJSONReader(type: JavaExec) {
     main = "com.dellemc.oe.readers.JSONReader"
     classpath = sourceSets.main.runtimeClasspath
@@ -65,6 +72,15 @@ task startJSONReader(type: JavaExec) {
         args System.getProperty("exec.args").split()
     }
 }
+
+task startNMAJSONReader(type: JavaExec) {
+    main = "it.consulthink.oe.readers.NMAJSONReader"
+    classpath = sourceSets.main.runtimeClasspath
+    if(System.getProperty("exec.args") != null) {
+        args System.getProperty("exec.args").split()
+    }
+}
+
 // Build examples
 task scriptImageReader(type: CreateStartScripts) {
     outputDir = file('build/scripts')

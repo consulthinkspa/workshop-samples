@@ -60,6 +60,13 @@ task scriptJSONWriter(type: CreateStartScripts) {
     classpath = files(jar.archivePath) + sourceSets.main.runtimeClasspath
 }
 
+task scriptNMAJSONWriter(type: CreateStartScripts) {
+    outputDir = file('build/scripts')
+    mainClassName = 'it.consulthink.oe.ingest.NMAJSONWriter'
+    applicationName = 'nmaJsonWriter'
+    classpath = files(jar.archivePath) + sourceSets.main.runtimeClasspath
+}
+
 task startJSONWriter(type: JavaExec) {
     main = "com.dellemc.oe.ingest.JSONWriter"
     classpath = sourceSets.main.runtimeClasspath
@@ -67,6 +74,15 @@ task startJSONWriter(type: JavaExec) {
         args System.getProperty("exec.args").split()
     }
 }
+
+task startNMAJSONWriter(type: JavaExec) {
+    main = "it.consulthink.oe.ingest.NMAJSONWriter"
+    classpath = sourceSets.main.runtimeClasspath
+    if(System.getProperty("exec.args") != null) {
+        args System.getProperty("exec.args").split()
+    }
+}
+
 distributions {
     main {
         baseName = archivesBaseName

@@ -48,6 +48,8 @@ dependencies {
 
     testCompile "org.apache.flink:flink-test-utils_${flinkScalaVersion}:${flinkVersion}"
     testCompile group: "junit", name: "junit", version: "4.11"
+    
+   
 
 }
 
@@ -62,6 +64,13 @@ task scriptWordCountReader(type: CreateStartScripts) {
     outputDir = file('build/scripts')
     mainClassName = 'com.dellemc.oe.flink.wordcount.WordCountReader'
     applicationName = 'wordCountReader'
+    classpath = files(jar.archivePath) + sourceSets.main.runtimeClasspath
+}
+
+task scriptWordCountReader(type: CreateStartScripts) {
+    outputDir = file('build/scripts')
+    mainClassName = 'it.consulthink.oe.flink.packetcount.PacketCountReader'
+    applicationName = 'packetCountReader'
     classpath = files(jar.archivePath) + sourceSets.main.runtimeClasspath
 }
 
