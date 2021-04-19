@@ -18,14 +18,15 @@ public class Parameters {
     public static URI getControllerURI() {
         return URI.create(getEnvVar("PRAVEGA_CONTROLLER", "tls://pravega-controller.sdp.cluster1.sdp-demo.org:443"));
     }
-
+    
     public static String getScope() {
-        return getEnvVar("PRAVEGA_SCOPE", "nma");
+        return getEnvVar("PRAVEGA_SCOPE", "workshop-samples");
     }
 
     public static String getStreamName() {
-        return getEnvVar("PRAVEGA_STREAM", "nma");
-    }
+        return getEnvVar("PRAVEGA_STREAM", "json-stream");
+    }    
+
 
     public static int getTargetRateEventsPerSec() {
         return Integer.parseInt(getEnvVar("PRAVEGA_TARGET_RATE_EVENTS_PER_SEC", "100"));
