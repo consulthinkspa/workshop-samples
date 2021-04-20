@@ -1,13 +1,18 @@
 package it.consulthink.oe.model;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.io.Serializable;
+import java.util.Date;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class NMAJSONData implements Serializable {
-	public String time;
+//	2021-03-21 23:59:58
+	@JsonFormat 
+    (shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd hh:mm:ss")
+	public Date time;
 	public String src_ip;
 	public String dst_ip;
 	public String dport;
@@ -48,7 +53,7 @@ public class NMAJSONData implements Serializable {
     
     
     
-    public NMAJSONData(String time, String src_ip, String dst_ip, String dport, String sport, long bytesin,
+    public NMAJSONData(Date time, String src_ip, String dst_ip, String dport, String sport, long bytesin,
 			long bytesout, long pkts, long pktsin, long pktsout, long synin, long synackout, long rstin, long rstout,
 			long get, long post) {
 		super();
@@ -74,11 +79,11 @@ public class NMAJSONData implements Serializable {
 
 
 
-	public String getTime() {
+	public Date getTime() {
 		return time;
 	}
 
-	public void setTime(String time) {
+	public void setTime(Date time) {
 		this.time = time;
 	}
 
