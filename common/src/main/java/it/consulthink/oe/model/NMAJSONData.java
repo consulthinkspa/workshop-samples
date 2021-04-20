@@ -9,9 +9,12 @@ import java.util.Date;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class NMAJSONData implements Serializable {
+	
+	
+	
 //	2021-03-21 23:59:58
 	@JsonFormat 
-    (shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd hh:mm:ss")
+    (shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
 	public Date time;
 	public String src_ip;
 	public String dst_ip;
@@ -76,6 +79,12 @@ public class NMAJSONData implements Serializable {
 	}
 
 
+
+
+
+	public NMAJSONData() {
+		super();
+	}
 
 
 
