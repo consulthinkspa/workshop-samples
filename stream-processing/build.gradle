@@ -40,6 +40,7 @@ dependencies {
     compile "org.apache.flink:flink-ml-lib_${flinkScalaVersion}:${flinkVersion}"
     compile "org.apache.flink:flink-table-planner_${flinkScalaVersion}:${flinkVersion}"
     compile "io.pravega:pravega-client:${pravegaVersion}"
+    compile "nz.ac.waikato.cms.moa:moa:${moaVersion}"
 
     // common-library dependencies
     compile "com.google.guava:guava:20.0"
@@ -67,7 +68,7 @@ task scriptWordCountReader(type: CreateStartScripts) {
     classpath = files(jar.archivePath) + sourceSets.main.runtimeClasspath
 }
 
-task scriptWordCountReader(type: CreateStartScripts) {
+task scriptPacketCountReader(type: CreateStartScripts) {
     outputDir = file('build/scripts')
     mainClassName = 'it.consulthink.oe.flink.packetcount.PacketCountReader'
     applicationName = 'packetCountReader'
