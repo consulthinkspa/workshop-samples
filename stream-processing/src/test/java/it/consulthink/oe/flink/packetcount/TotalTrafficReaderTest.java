@@ -67,7 +67,7 @@ public class TotalTrafficReaderTest {
 			}
 		};
 
-		List<NMAJSONData> iterable = readCSV();
+		List<NMAJSONData> iterable = readCSV("metrics_23-03-ordered.csv");
 
 		sumBytes.process(null, iterable, collector);
 
@@ -140,7 +140,7 @@ public class TotalTrafficReaderTest {
 		senv.setParallelism(3);
 		senv.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 
-		ArrayList<NMAJSONData> iterable = readCSV();
+		ArrayList<NMAJSONData> iterable = readCSV("metrics_23-03-ordered.csv");
 
 		DataStream<NMAJSONData> source = senv.fromCollection(iterable).filter(getFilterFunction());
 		
@@ -170,6 +170,46 @@ public class TotalTrafficReaderTest {
         Assert.assertEquals(29233l, total);	
 
 	}
+	
+	@Test
+	public void testProcessSourceUnordered() throws Exception {
+		
+		CollectSink.values.clear();
+		
+		StreamExecutionEnvironment senv = StreamExecutionEnvironment.getExecutionEnvironment();
+		senv.setParallelism(3);
+		senv.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+
+		ArrayList<NMAJSONData> iterable = readCSV("metrics_23-03.csv");
+
+		DataStream<NMAJSONData> source = senv.fromCollection(iterable);;
+		
+		source.printToErr();
+		LOG.info("==============  ProcessSource Source - PRINTED  ===============");
+		
+		SingleOutputStreamOperator<Tuple2<Date, Long>> datasource = TotalTrafficReader.processSource(senv, source);
+		
+		
+//		datasource.printToErr();
+		LOG.info("==============  ProcessSource Processed - PRINTED  ===============");
+		datasource.addSink(new CollectSink());
+//		datasource.printToErr();
+		LOG.info("==============  ProcessSource Sink - PRINTED  ===============");
+		senv.execute();
+		
+		for (Tuple2<Date, Long> l : CollectSink.values) {
+			LOG.info(l.toString());
+		}
+		
+		long total = 0l;
+		for (Tuple2<Date, Long> l : CollectSink.values) {
+			total+=l.f1;
+		}
+		
+        // verify your results
+        Assert.assertFalse(new Long(total).equals(10311545l));	
+
+	}
 
 
 
@@ -189,9 +229,9 @@ public class TotalTrafficReaderTest {
 		return filter;
 	}
 
-	public static ArrayList<NMAJSONData> readCSV() throws FileNotFoundException, ParseException {
+	public static ArrayList<NMAJSONData> readCSV(String csvFileName) throws FileNotFoundException, ParseException {
 		SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
-		Path path = FileSystems.getDefault().getPath("../common/src/main/resources/metrics_23-03-ordered.csv").toAbsolutePath();
+		Path path = FileSystems.getDefault().getPath("../common/src/main/resources/" + csvFileName).toAbsolutePath();
 		File csv = path.toFile();
 		Assert.assertTrue(csv.exists() && csv.isFile());
 
