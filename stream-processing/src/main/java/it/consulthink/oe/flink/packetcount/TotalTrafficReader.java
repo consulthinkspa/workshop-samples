@@ -1,13 +1,18 @@
 package it.consulthink.oe.flink.packetcount;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
+import org.apache.flink.api.java.functions.KeySelector;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.streaming.api.functions.timestamps.BoundedOutOfOrdernessTimestampExtractor;
 import org.apache.flink.streaming.api.functions.windowing.ProcessAllWindowFunction;
+import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
@@ -74,14 +79,14 @@ public class TotalTrafficReader extends AbstractApp {
             DataStream<NMAJSONData> source = env.addSource(sourceFunction).name("InputSource");
             LOG.info("==============  Source  =============== " + source);
             
-			SingleOutputStreamOperator<Long> dataStream = processSource(env, source);
+			SingleOutputStreamOperator<Tuple2<Date, Long>> dataStream = processSource(env, source);
 
             dataStream.printToErr();
             LOG.info("==============  ProcessSource - PRINTED  ===============");
             
 			
             
-            FlinkPravegaWriter<Long> sink = getSinkFunction(pravegaConfig, outputStreamName);
+            FlinkPravegaWriter<Tuple2<Date, Long>> sink = getSinkFunction(pravegaConfig, outputStreamName);
             
             dataStream.addSink(sink).name("NMATotalTrafficStream");
 
@@ -106,7 +111,7 @@ public class TotalTrafficReader extends AbstractApp {
 
 
 
-	public static ProcessAllWindowFunction<NMAJSONData, Long, TimeWindow> getProcessFunction() {
+	public static ProcessAllWindowFunction<NMAJSONData, Long, TimeWindow> getProcessAllWindowFunction() {
 		ProcessAllWindowFunction<NMAJSONData, Long, TimeWindow> sumBytes = new ProcessAllWindowFunction<NMAJSONData, Long, TimeWindow>() {
 
 			@Override
@@ -117,6 +122,22 @@ public class TotalTrafficReader extends AbstractApp {
 					collector.collect(element.getBytesin() + element.getBytesout());
 				}
 			}
+			
+		};
+		return sumBytes;
+	}
+	
+	public static ProcessWindowFunction<NMAJSONData, Tuple2<Date, Long>, Date, TimeWindow> getProcessFunction() {
+		ProcessWindowFunction<NMAJSONData, Tuple2<Date, Long>, Date, TimeWindow> sumBytes = new ProcessWindowFunction<NMAJSONData, Tuple2<Date, Long>, Date, TimeWindow>() {
+
+			@Override
+			public void process(Date key,ProcessWindowFunction<NMAJSONData, Tuple2<Date, Long>, Date, TimeWindow>.Context ctx,Iterable<NMAJSONData> iterable, Collector<Tuple2<Date, Long>> collector) throws Exception {
+				for (NMAJSONData element : iterable) {
+					collector.collect(Tuple2.of(key, element.getBytesin() + element.getBytesout()));
+				}
+			}
+
+
 			
 		};
 		return sumBytes;
@@ -136,13 +157,24 @@ public class TotalTrafficReader extends AbstractApp {
 	}
 	
 	@SuppressWarnings("unchecked")
-	public static SingleOutputStreamOperator<Long> processSource(StreamExecutionEnvironment env, DataStream<NMAJSONData> source) {
+	public static SingleOutputStreamOperator<Tuple2<Date, Long>> processSource(StreamExecutionEnvironment env, DataStream<NMAJSONData> source) {
         env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 		
 		BoundedOutOfOrdernessTimestampExtractor<NMAJSONData> timestampAndWatermarkAssigner = getTimestampAndWatermarkAssigner();
-		SingleOutputStreamOperator<Long> dataStream = source
+
+		
+		
+		SingleOutputStreamOperator<Tuple2<Date, Long>> dataStream = source
 				.assignTimestampsAndWatermarks(timestampAndWatermarkAssigner)
-				.windowAll(TumblingEventTimeWindows.of(Time.seconds(1)))
+				.keyBy(new KeySelector<NMAJSONData, Date>(){
+
+					@Override
+					public Date getKey(NMAJSONData value) throws Exception {
+						return value.getTime();
+					}
+					
+				})
+				.window(TumblingEventTimeWindows.of(Time.seconds(1)))
 				.process(getProcessFunction());
 		return dataStream;
 	}
@@ -159,16 +191,20 @@ public class TotalTrafficReader extends AbstractApp {
 		return timestampAndWatermarkAssigner;
 	}
 	
-	private FlinkPravegaWriter<Long> getSinkFunction(PravegaConfig pravegaConfig, String outputStreamName) {
-		FlinkPravegaWriter<Long> sink = FlinkPravegaWriter.<Long>builder()
+	private FlinkPravegaWriter<Tuple2<Date, Long>> getSinkFunction(PravegaConfig pravegaConfig, String outputStreamName) {
+		SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
+		
+		
+		FlinkPravegaWriter<Tuple2<Date, Long>> sink = FlinkPravegaWriter.<Tuple2<Date, Long>>builder()
 		        .withPravegaConfig(pravegaConfig)
 		        .forStream(outputStreamName)
-		        .withEventRouter(new PravegaEventRouter<Long>() {
+		        .withEventRouter(new PravegaEventRouter<Tuple2<Date, Long>>() {
 
 					@Override
-					public String getRoutingKey(Long event) {
-						return "TotalTraffic";
+					public String getRoutingKey(Tuple2<Date, Long> event) {
+						return df.format(event.f0);
 					}
+
 		        	
 				})
 		        //TODO controllare la necessita dello scema

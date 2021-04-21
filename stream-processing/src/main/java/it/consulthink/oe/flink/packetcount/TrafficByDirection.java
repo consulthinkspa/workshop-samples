@@ -31,7 +31,7 @@ public class TrafficByDirection extends AbstractApp {
 
 
     // Logger initialization
-    private static final Logger LOG = LoggerFactory.getLogger(PacketCountReader.class);
+    private static final Logger LOG = LoggerFactory.getLogger(TrafficByDirection.class);
 
 
     // The application reads data from specified Pravega stream and once every 10 seconds

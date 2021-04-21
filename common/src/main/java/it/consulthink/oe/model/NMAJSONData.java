@@ -36,7 +36,7 @@ public class NMAJSONData implements Serializable {
 	
     @Override
     public String toString() {
-        return "JSONData{" +
+        return "NMAJSONData{" +
                 "time='" + time + '\'' +
                 ", src_ip='" + src_ip + '\'' +
                 ", dst_ip='" + dst_ip + '\'' +
