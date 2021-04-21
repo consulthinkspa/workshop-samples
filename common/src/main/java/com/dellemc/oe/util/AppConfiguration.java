@@ -10,12 +10,17 @@
 
 package com.dellemc.oe.util;
 
-import io.pravega.client.admin.StreamManager;
-import io.pravega.client.stream.Stream;
-import io.pravega.connectors.flink.PravegaConfig;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import io.pravega.client.stream.Stream;
+import io.pravega.connectors.flink.PravegaConfig;
 
 // All parameters will come from environment variables. This makes it easy
 // to configure on Docker, Mesos, Kubernetes, etc.
@@ -34,6 +39,7 @@ public class AppConfiguration {
     private String dataFile;
     private String message;
     private String csvDir;
+    private Set<String> myIps = new HashSet<String>();
 
     public AppConfiguration(String[] args) {
         ParameterTool params = ParameterTool.fromArgs(args);
@@ -51,11 +57,16 @@ public class AppConfiguration {
         dataFile = params.get("dataFile", "earthquakes1970-2014.csv");
         message = params.get("message", "hello world");
         csvDir = params.get("csvDir", "/mnt/flink");
+        myIps = new HashSet<String>(Arrays.asList(params.get("myIps", "213.61.202.114,213.61.202.115,213.61.202.116").split(",")));
     }
 
     public String getCsvDir() {return csvDir;}
 
-    public String getMessage() {
+    public Set<String> getMyIps() {
+		return myIps;
+	}
+
+	public String getMessage() {
         return message;
     }
 
