@@ -100,7 +100,7 @@ KEYCLOAK_SERVICE_ACCOUNT_FILE=${HOME}/keycloak.json
 PRAVEGA_CONTROLLER=tcp://<pravega controller>:9090
 PRAVEGA_SCOPE=workshop-samples
 PRAVEGA_STREAM=nma-input
-DATA_FILE=metrics_23-03.csv
+DATA_FILE=metrics_23-03-ordered.csv
 ```
 - Save configuration and hit Run
 

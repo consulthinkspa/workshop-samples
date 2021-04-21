@@ -37,7 +37,7 @@ public class Parameters {
     }
 
     public static String getDataFile() {
-        return getEnvVar("DATA_FILE", "metrics_23-03.csv");
+        return getEnvVar("DATA_FILE", "metrics_23-03-ordered.csv");
     }
 
     public static String getRoutingKey() {
