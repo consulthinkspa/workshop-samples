@@ -1,9 +1,18 @@
 package it.consulthink.oe.flink.packetcount;
 
 import org.apache.flink.api.common.functions.FlatMapFunction;
+import org.apache.flink.api.java.tuple.Tuple3;
+import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.functions.timestamps.BoundedOutOfOrdernessTimestampExtractor;
+import org.apache.flink.streaming.api.functions.windowing.ProcessAllWindowFunction;
+import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction;
+import org.apache.flink.streaming.api.watermark.Watermark;
+import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
 import org.apache.flink.streaming.api.windowing.time.Time;
+import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
+import org.apache.flink.table.sources.wmstrategies.WatermarkStrategy;
 import org.apache.flink.util.Collector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,12 +28,15 @@ import io.pravega.connectors.flink.FlinkPravegaWriter;
 import io.pravega.connectors.flink.PravegaEventRouter;
 import it.consulthink.oe.model.NMAJSONData;
 
+import java.util.HashSet;
+import java.util.Set;
+
 /*
  * At a high level, PacketCountReader reads from a Pravega stream, and prints
  * the packet count summary to the output. This class provides an example for
  * a simple Flink application that reads streaming data from Pravega.
  *
- * And  after flink transformation  output redirect to another pravega stream.
+ * And  after flink transformation output redirect to another pravega stream.
  *
  * This application has the following input parameters
  *     stream - Pravega stream name to read from
@@ -53,6 +65,7 @@ public class PacketCountReader extends AbstractApp {
             LOG.info("============== NMA PacketCountReader stream  =============== " + streamConfig.getStream().getStreamName());
 
             StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+            env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
             
             // create the Pravega source to read a stream of text
             FlinkPravegaReader<NMAJSONData> source = FlinkPravegaReader.builder()
@@ -60,16 +73,36 @@ public class PacketCountReader extends AbstractApp {
                     .forStream(streamConfig.getStream().getStreamName())
                     .withDeserializationSchema(new JsonDeserializationSchema(NMAJSONData.class))
                     .build();
+
+
             LOG.info("==============  NMA PacketCountReader SOURCE  =============== " + source);
-            
-            
+
+
+            ProcessAllWindowFunction<NMAJSONData, Long, TimeWindow> sumPackets = new ProcessAllWindowFunction<NMAJSONData, Long, TimeWindow>() {
+
+                @Override
+                public void process(ProcessAllWindowFunction<NMAJSONData, Long, TimeWindow>.Context arg0,
+                                    Iterable<NMAJSONData> arg1, Collector<Long> arg2) throws Exception {
+
+                    for (NMAJSONData nmajsonData : arg1) {
+                        arg2.collect(nmajsonData.getPkts());
+                    }
+                }
+
+            };
+
+
             // count packets over a 10 second time period
-            DataStream<PacketCount> dataStream = env.addSource(source).name(streamConfig.getStream().getStreamName())
-                    .flatMap(new PacketCountReader.NMASumPackets())
-                    .keyBy("networkHash")
-                    //TODO check window 
-                    .timeWindow(Time.seconds(10))
-                    .sum("count");
+            DataStream<Long> dataStream = env.addSource(source).name(streamConfig.getStream().getStreamName())
+               .assignTimestampsAndWatermarks(new BoundedOutOfOrdernessTimestampExtractor<NMAJSONData>(Time.seconds(5)) {
+                   @Override
+                   public long extractTimestamp(NMAJSONData element) {
+                       return element.getTime().getTime();
+                   }
+               })
+               .windowAll(TumblingEventTimeWindows.of(Time.seconds(1)))
+               .process(sumPackets);
+
 
             // create an output sink to print to stdout for verification
             dataStream.printToErr();
@@ -78,13 +111,15 @@ public class PacketCountReader extends AbstractApp {
             AppConfiguration.StreamConfig outputStreamConfig = appConfiguration.getOutputStreamConfig();
             //  create stream
             createStream(appConfiguration.getOutputStreamConfig());
-            FlinkPravegaWriter<PacketCount> writer = FlinkPravegaWriter.<PacketCount>builder()
+            FlinkPravegaWriter<Long> writer = FlinkPravegaWriter.<Long>builder()
                     .withPravegaConfig(appConfiguration.getPravegaConfig())
                     .forStream(outputStreamConfig.getStream().getStreamName())
-                    .withEventRouter(new EventRouter())
-                    .withSerializationSchema(new JsonSerializationSchema())
+                    .withEventRouter((a) -> "TotalPackets" )
+                    // TODO controllare la necessità dello schema
+                    //.withSerializationSchema(new JsonSerializationSchema())
                     .build();
-            dataStream.addSink(writer).name("NMAPacketCountReaderOutputStream");
+
+            dataStream.addSink(writer).name("NMATotalPacketStream");
 
             // create another output sink to print to stdout for verification
 
@@ -102,28 +137,10 @@ public class PacketCountReader extends AbstractApp {
     public static void main(String[] args) throws Exception {
         LOG.info("Starting PacketCountReader...");
         AppConfiguration appConfiguration = new AppConfiguration(args);
-        PacketCountReader wordCounter = new PacketCountReader(appConfiguration);
-        wordCounter.run();
+        PacketCountReader reader = new PacketCountReader(appConfiguration);
+        reader.run();
     }
 
-    /*
-     * Event Router class
-     */
-    public static class EventRouter implements PravegaEventRouter<PacketCount> {
-        // Ordering - events with the same routing key will always be
-        // read in the order they were written
-        @Override
-        public String getRoutingKey(PacketCount event) {
-            return event.getNetworkHash();
-        }
-    }
 
-    // count packets by network hash
-    private static class NMASumPackets implements FlatMapFunction<NMAJSONData, PacketCount> {
-        @Override
-        public void flatMap(NMAJSONData line, Collector<PacketCount> out) throws Exception {
-        	out.collect(new PacketCount(line));
-        }
-    }
 
 }

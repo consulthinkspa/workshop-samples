@@ -33,6 +33,7 @@ public class NMAJSONWriter {
 
         ObjectNode message = null;
         try {
+
             URI controllerURI = Parameters.getControllerURI();
             StreamManager streamManager = StreamManager.create(controllerURI);
             String scope = Parameters.getScope();
@@ -47,6 +48,7 @@ public class NMAJSONWriter {
                     .credentials(null).trustStore("").build();
             EventStreamClientFactory clientFactory = EventStreamClientFactory.withScope(scope, config);
             // Create  Pravega event writer
+
             EventStreamWriter<JsonNode> writer = clientFactory.createEventWriter(
                     streamName,
                     new JsonNodeSerializer(),
