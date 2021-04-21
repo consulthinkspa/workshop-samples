@@ -42,6 +42,8 @@ public class NMAJSONData implements Serializable {
                 ", dst_ip='" + dst_ip + '\'' +
                 ", dport='" + dport + '\'' +
                 ", sport='" + sport + '\'' +
+				", bytesin='" + bytesin + '\'' +
+				", bytesout='" + bytesout + '\'' +
                 ", pkts='" + pkts + '\'' +
                 ", pktsin='" + pktsin + '\'' +
                 ", pktsout='" + pktsout + '\'' +

@@ -57,7 +57,11 @@ public class AppConfiguration {
         dataFile = params.get("dataFile", "earthquakes1970-2014.csv");
         message = params.get("message", "hello world");
         csvDir = params.get("csvDir", "/mnt/flink");
-        myIps = new HashSet<String>(Arrays.asList(params.get("myIps", "213.61.202.114,213.61.202.115,213.61.202.116").split(",")));
+        myIps = new HashSet<String>(Arrays.asList(params.get("myIps",
+                "213.61.202.114,213.61.202.115,213.61.202.116," +
+                        "213.61.202.117,213.61.202.118,213.61.202.119," +
+                        "213.61.202.120,213.61.202.121,213.61.202.122," +
+                        ",213.61.202.123,213.61.202.124,213.61.202.125,213.61.202.126").split(",")));
     }
 
     public String getCsvDir() {return csvDir;}
@@ -65,6 +69,7 @@ public class AppConfiguration {
     public Set<String> getMyIps() {
 		return myIps;
 	}
+
 
 	public String getMessage() {
         return message;
