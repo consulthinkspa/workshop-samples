@@ -1,10 +1,14 @@
 package it.consulthink.oe.flink.packetcount;
 
+import io.pravega.connectors.flink.PravegaConfig;
 import org.apache.flink.api.common.functions.FlatMapFunction;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.streaming.api.functions.timestamps.BoundedOutOfOrdernessTimestampExtractor;
 import org.apache.flink.streaming.api.functions.windowing.ProcessAllWindowFunction;
 import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction;
@@ -28,6 +32,8 @@ import io.pravega.connectors.flink.FlinkPravegaWriter;
 import io.pravega.connectors.flink.PravegaEventRouter;
 import it.consulthink.oe.model.NMAJSONData;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -56,83 +62,139 @@ public class PacketCountReader extends AbstractApp {
     }
 
     public void run(){
+
+        LOG.info("Starting NMA PacketCountReader...");
+
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+
+        AppConfiguration.StreamConfig inputStreamConfig = appConfiguration.getInputStreamConfig();
+        String inputStreamName = inputStreamConfig.getStream().getStreamName();
+        LOG.info("============== input stream  =============== " + inputStreamName);
+
+        AppConfiguration.StreamConfig outputStreamConfig= appConfiguration.getOutputStreamConfig();
+        String outputStreamName = outputStreamConfig.getStream().getStreamName();
+        LOG.info("============== output stream  =============== " + outputStreamName);
+
+
+        // Create EventStreamClientFactory
+        PravegaConfig pravegaConfig = appConfiguration.getPravegaConfig();
+        LOG.info("============== Praevega  =============== " + pravegaConfig);
+
+
+        SourceFunction<NMAJSONData> sourceFunction = getSourceFunction(pravegaConfig, inputStreamName);
+        LOG.info("==============  SourceFunction  =============== " + sourceFunction);
+
+        DataStream<NMAJSONData> source = env.addSource(sourceFunction).name("InputSource");
+        LOG.info("==============  Source  =============== " + source);
+
+        SingleOutputStreamOperator<Tuple2<Date, Long>> dataStream = processSource(env, source);
+
+        dataStream.printToErr();
+        LOG.info("==============  ProcessSource - PRINTED  ===============");
+
+
+        FlinkPravegaWriter<Tuple2<Date, Long>> sink = getSinkFunction(pravegaConfig, outputStreamName);
+
+        dataStream.addSink(sink).name("NMAPacketCountStream");
+
+        // create another output sink to print to stdout for verification
+        dataStream.printToErr();
+        LOG.info("==============  ProcessSink - PRINTED  ===============");
+
+
+
+        // execute within the Flink environment
         try {
-            AppConfiguration.StreamConfig streamConfig = appConfiguration.getInputStreamConfig();
-            //  create stream
-            createStream(appConfiguration.getInputStreamConfig());
-            // Create EventStreamClientFactory
-            ClientConfig clientConfig = appConfiguration.getPravegaConfig().getClientConfig();
-            LOG.info("============== NMA PacketCountReader stream  =============== " + streamConfig.getStream().getStreamName());
-
-            StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-            env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
-            
-            // create the Pravega source to read a stream of text
-            FlinkPravegaReader<NMAJSONData> source = FlinkPravegaReader.builder()
-            		.withPravegaConfig(appConfiguration.getPravegaConfig())
-                    .forStream(streamConfig.getStream().getStreamName())
-                    .withDeserializationSchema(new JsonDeserializationSchema(NMAJSONData.class))
-                    .build();
-
-
-            LOG.info("==============  NMA PacketCountReader SOURCE  =============== " + source);
-
-
-            ProcessAllWindowFunction<NMAJSONData, Long, TimeWindow> sumPackets = new ProcessAllWindowFunction<NMAJSONData, Long, TimeWindow>() {
-
-                @Override
-                public void process(ProcessAllWindowFunction<NMAJSONData, Long, TimeWindow>.Context arg0,
-                                    Iterable<NMAJSONData> arg1, Collector<Long> arg2) throws Exception {
-
-                    for (NMAJSONData nmajsonData : arg1) {
-                        arg2.collect(nmajsonData.getPkts());
-                    }
-                }
-
-            };
-
-
-            // count packets over a 10 second time period
-            DataStream<Long> dataStream = env.addSource(source).name(streamConfig.getStream().getStreamName())
-               .assignTimestampsAndWatermarks(new BoundedOutOfOrdernessTimestampExtractor<NMAJSONData>(Time.seconds(5)) {
-                   @Override
-                   public long extractTimestamp(NMAJSONData element) {
-                       return element.getTime().getTime();
-                   }
-               })
-               .windowAll(TumblingEventTimeWindows.of(Time.seconds(1)))
-               .process(sumPackets);
-
-
-            // create an output sink to print to stdout for verification
-            dataStream.printToErr();
-
-            LOG.info("==============  NMA PacketCountReader PRINTED  ===============");
-            AppConfiguration.StreamConfig outputStreamConfig = appConfiguration.getOutputStreamConfig();
-            //  create stream
-            createStream(appConfiguration.getOutputStreamConfig());
-            FlinkPravegaWriter<Long> writer = FlinkPravegaWriter.<Long>builder()
-                    .withPravegaConfig(appConfiguration.getPravegaConfig())
-                    .forStream(outputStreamConfig.getStream().getStreamName())
-                    .withEventRouter((a) -> "TotalPackets" )
-                    // TODO controllare la necessità dello schema
-                    //.withSerializationSchema(new JsonSerializationSchema())
-                    .build();
-
-            dataStream.addSink(writer).name("NMATotalPacketStream");
-
-            // create another output sink to print to stdout for verification
-
-            LOG.info("============== NMA PacketCountReader Final output ===============");
-            dataStream.printToErr();
-            // execute within the Flink environment
             env.execute("PacketCountReader");
-
+        } catch (Exception e) {
+            LOG.error("Error executing PacketCountReader...");
+        }finally {
             LOG.info("Ending NMA PacketCountReader...");
-        }catch (Exception e) {
-            throw new RuntimeException(e);
         }
+
+
     }
+
+    @SuppressWarnings("unchecked")
+    private FlinkPravegaReader<NMAJSONData> getSourceFunction(PravegaConfig pravegaConfig, String inputStreamName) {
+        // create the Pravega source to read a stream of text
+        FlinkPravegaReader<NMAJSONData> source = FlinkPravegaReader.builder()
+                .withPravegaConfig(pravegaConfig)
+                .forStream(inputStreamName)
+                .withDeserializationSchema(new JsonDeserializationSchema(NMAJSONData.class))
+                .build();
+        return source;
+    }
+
+    public static SingleOutputStreamOperator<Tuple2<Date, Long>> processSource(StreamExecutionEnvironment env, DataStream<NMAJSONData> source) {
+        env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+
+        BoundedOutOfOrdernessTimestampExtractor<NMAJSONData> timestampAndWatermarkAssigner = getTimestampAndWatermarkAssigner();
+        SingleOutputStreamOperator<Tuple2<Date, Long>> dataStream = source
+                .assignTimestampsAndWatermarks(timestampAndWatermarkAssigner)
+                .keyBy((NMAJSONData x) -> x.getTime())
+                .window(TumblingEventTimeWindows.of(Time.seconds(1)))
+                .process(getProcessFunction());
+
+        return dataStream;
+    }
+
+    public static ProcessAllWindowFunction<NMAJSONData, Long, TimeWindow> getProcessAllWindowFunction() {
+        ProcessAllWindowFunction<NMAJSONData, Long, TimeWindow> sumPkts = new ProcessAllWindowFunction<NMAJSONData, Long, TimeWindow>() {
+
+            @Override
+            public void process(ProcessAllWindowFunction<NMAJSONData, Long, TimeWindow>.Context ctx,
+                                Iterable<NMAJSONData> iterable, Collector<Long> collector) throws Exception {
+
+                for (NMAJSONData element : iterable) {
+                    collector.collect(element.getPkts());
+                }
+            }
+
+        };
+        return sumPkts;
+    }
+
+    public static ProcessWindowFunction<NMAJSONData, Tuple2<Date, Long>, Date, TimeWindow> getProcessFunction() {
+        ProcessWindowFunction<NMAJSONData, Tuple2<Date, Long>, Date, TimeWindow> sumPkts = new ProcessWindowFunction<NMAJSONData, Tuple2<Date, Long>, Date, TimeWindow>() {
+
+            @Override
+            public void process(Date key,ProcessWindowFunction<NMAJSONData, Tuple2<Date, Long>, Date, TimeWindow>.Context ctx,Iterable<NMAJSONData> iterable, Collector<Tuple2<Date, Long>> collector) throws Exception {
+                for (NMAJSONData element : iterable) {
+                    collector.collect(Tuple2.of(key, element.getPkts()));
+                }
+            }
+        };
+        return sumPkts;
+    }
+
+
+    public static BoundedOutOfOrdernessTimestampExtractor<NMAJSONData> getTimestampAndWatermarkAssigner() {
+        BoundedOutOfOrdernessTimestampExtractor<NMAJSONData> timestampAndWatermarkAssigner = new BoundedOutOfOrdernessTimestampExtractor<NMAJSONData>(Time.seconds(10)) {
+
+            @Override
+            public long extractTimestamp(NMAJSONData element) {
+                return element.getTime().getTime();
+            }
+
+        };
+        return timestampAndWatermarkAssigner;
+    }
+
+    private FlinkPravegaWriter<Tuple2<Date, Long>> getSinkFunction(PravegaConfig pravegaConfig, String outputStreamName) {
+        SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
+
+
+        FlinkPravegaWriter<Tuple2<Date, Long>> sink = FlinkPravegaWriter.<Tuple2<Date, Long>>builder()
+                .withPravegaConfig(pravegaConfig)
+                .forStream(outputStreamName)
+                .withEventRouter((a) -> "TotalPackets")
+                //TODO controllare la necessita dello scema
+//                .withSerializationSchema(???)
+                .build();
+        return sink;
+    }
+
 
     public static void main(String[] args) throws Exception {
         LOG.info("Starting PacketCountReader...");

@@ -1,18 +1,10 @@
 package it.consulthink.oe.flink.packetcount;
 
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.nio.file.FileSystems;
-import java.nio.file.Path;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.*;
-
-import com.dellemc.oe.util.AppConfiguration;
+import it.consulthink.oe.model.NMAJSONData;
+import junit.framework.Assert;
 import org.apache.commons.lang3.time.DateUtils;
 import org.apache.flink.api.common.functions.FilterFunction;
-import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
 import org.apache.flink.streaming.api.TimeCharacteristic;
@@ -29,8 +21,13 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import it.consulthink.oe.model.NMAJSONData;
-import junit.framework.Assert;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 
 public class TrafficByDirectionTest {
@@ -71,7 +68,7 @@ public class TrafficByDirectionTest {
 
             @Override
             public String toString() {
-                return "in: " + String.valueOf(inbound) + ", out: "+ String.valueOf(outbound) + ", lat: "+ String.valueOf(lateral);
+                return "in: " + inbound + ", out: "+ outbound + ", lat: "+ lateral;
             }
 
               };

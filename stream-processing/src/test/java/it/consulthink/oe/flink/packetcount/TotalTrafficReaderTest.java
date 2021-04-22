@@ -67,7 +67,7 @@ public class TotalTrafficReaderTest {
 			}
 		};
 
-		List<NMAJSONData> iterable = readCSV("metrics_23-03-ordered.csv");
+		List<NMAJSONData> iterable = TestUtilities.readCSV("metrics_23-03-ordered.csv");
 
 		sumBytes.process(null, iterable, collector);
 
@@ -140,9 +140,9 @@ public class TotalTrafficReaderTest {
 		senv.setParallelism(3);
 		senv.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 
-		ArrayList<NMAJSONData> iterable = readCSV("metrics_23-03-ordered.csv");
+		ArrayList<NMAJSONData> iterable = TestUtilities.readCSV("metrics_23-03-ordered.csv");
 
-		DataStream<NMAJSONData> source = senv.fromCollection(iterable).filter(getFilterFunction());
+		DataStream<NMAJSONData> source = senv.fromCollection(iterable).filter(TestUtilities.getFilterFunction());
 		
 		source.printToErr();
 		LOG.info("==============  ProcessSource Source - PRINTED  ===============");
@@ -180,11 +180,11 @@ public class TotalTrafficReaderTest {
 		senv.setParallelism(3);
 		senv.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 
-		ArrayList<NMAJSONData> iterable = readCSV("metrics_23-03.csv");
+		ArrayList<NMAJSONData> iterable = TestUtilities.readCSV("metrics_23-03.csv");
 
-		DataStream<NMAJSONData> source = senv.fromCollection(iterable);;
-		
-		source.printToErr();
+		DataStream<NMAJSONData> source = senv.fromCollection(iterable);
+
+        source.printToErr();
 		LOG.info("==============  ProcessSource Source - PRINTED  ===============");
 		
 		SingleOutputStreamOperator<Tuple2<Date, Long>> datasource = TotalTrafficReader.processSource(senv, source);
@@ -212,45 +212,6 @@ public class TotalTrafficReaderTest {
 	}
 
 
-
-
-
-	public static FilterFunction<NMAJSONData> getFilterFunction() {
-		FilterFunction<NMAJSONData> filter = new FilterFunction<NMAJSONData>() {
-
-			@Override
-			public boolean filter(NMAJSONData value) throws Exception {
-				Date min = DateUtils.parseDate("2021-03-21  22:59:59", "yyyy-MM-dd HH:mm:ss");
-				Date max = DateUtils.parseDate("2021-03-21  23:00:03", "yyyy-MM-dd HH:mm:ss");
-				return value.getTime().after(min) && value.getTime().before(max);
-			}
-			
-		};
-		return filter;
-	}
-
-	public static ArrayList<NMAJSONData> readCSV(String csvFileName) throws FileNotFoundException, ParseException {
-		SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
-		Path path = FileSystems.getDefault().getPath("../common/src/main/resources/" + csvFileName).toAbsolutePath();
-		File csv = path.toFile();
-		Assert.assertTrue(csv.exists() && csv.isFile());
-
-		ArrayList<NMAJSONData> iterable = new ArrayList<NMAJSONData>();
-		Scanner myReader = new Scanner(csv);
-		String line = myReader.nextLine();
-		while (myReader.hasNextLine()) {
-			String[] splitted = myReader.nextLine().split(",");
-			NMAJSONData tmp = new NMAJSONData(df.parse(splitted[0]), 
-					splitted[1], splitted[2], splitted[3], splitted[4],
-					Long.valueOf(splitted[5]), Long.valueOf(splitted[6]), Long.valueOf(splitted[7]),
-					Long.valueOf(splitted[8]), Long.valueOf(splitted[9]), Long.valueOf(splitted[10]),
-					Long.valueOf(splitted[11]), Long.valueOf(splitted[5]), Long.valueOf(splitted[5]),
-					Long.valueOf(splitted[12]), Long.valueOf(splitted[13]));
-			iterable.add(tmp);
-		}
-		myReader.close();
-		return iterable;
-	}
 	
 	private static class CollectSink implements SinkFunction<Tuple2<Date, Long>> {
 
@@ -261,6 +222,6 @@ public class TotalTrafficReaderTest {
         public void invoke(Tuple2<Date, Long> value) throws Exception {
             values.add(value);
         }
-    }	
+    }
 
 }
