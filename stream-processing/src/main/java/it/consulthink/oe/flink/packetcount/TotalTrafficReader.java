@@ -3,6 +3,7 @@ package it.consulthink.oe.flink.packetcount;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+import org.apache.flink.api.common.functions.ReduceFunction;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.streaming.api.TimeCharacteristic;
@@ -175,7 +176,28 @@ public class TotalTrafficReader extends AbstractApp {
 					
 				})
 				.window(TumblingEventTimeWindows.of(Time.seconds(1)))
-				.process(getProcessFunction());
+				.process(getProcessFunction())
+				.keyBy(new KeySelector<Tuple2<Date,Long>, Date>(){
+
+					@Override
+					public Date getKey(Tuple2<Date, Long> value) throws Exception {
+						return value.f0;
+					}
+					
+				})
+				.window(TumblingEventTimeWindows.of(Time.seconds(1)))
+				.reduce(new ReduceFunction<Tuple2<Date,Long>>() {
+					
+					@Override
+					public Tuple2<Date, Long> reduce(Tuple2<Date, Long> value1, Tuple2<Date, Long> value2) throws Exception {
+						
+						
+						if (value1.f0.equals(value2.f0))
+							return Tuple2.of(value1.f0, value1.f1 + value2.f1);
+						LOG.error(""+value1+" "+value2);
+						throw new RuntimeException();
+					}
+				});
 		return dataStream;
 	}
 

@@ -21,6 +21,8 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.dellemc.oe.util.AppConfiguration;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.nio.file.FileSystems;
@@ -100,6 +102,29 @@ public class TrafficByDirectionTest {
 
 
     }
+    
+    @Test
+    public void testParameters() {
+        String[] args = {"--myIps",""
+        		+ "213.61.202.114,"
+        		+ "213.61.202.115,"
+        		+ "213.61.202.116," 
+                + "213.61.202.117,"
+                + "213.61.202.118,"
+                + "213.61.202.119," 
+                + "213.61.202.120,"
+                + "213.61.202.121,"
+                + "213.61.202.122," 
+                + "213.61.202.123,"
+                + "213.61.202.124,"
+                + "213.61.202.125,"
+                + "213.61.202.126"};
+		AppConfiguration ac = new AppConfiguration(args);
+		Set<String> myIps = ac.getMyIps();
+		
+		Assert.assertEquals(13, myIps.size());
+
+    }
 
 
     @Test
@@ -111,6 +136,8 @@ public class TrafficByDirectionTest {
                         "213.61.202.117,213.61.202.118,213.61.202.119," +
                         "213.61.202.120,213.61.202.121,213.61.202.122," +
                         ",213.61.202.123,213.61.202.124,213.61.202.125,213.61.202.126").split(",")));
+        
+        
 
 
         CollectSink.values.clear();

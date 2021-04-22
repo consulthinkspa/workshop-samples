@@ -1,20 +1,14 @@
 package it.consulthink.oe.flink.packetcount;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.nio.file.FileSystems;
-import java.nio.file.Path;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
-import java.util.Scanner;
 
 import org.apache.commons.lang3.time.DateUtils;
-import org.apache.flink.api.common.functions.FilterFunction;
+import org.apache.flink.api.common.functions.ReduceFunction;
+import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
 import org.apache.flink.streaming.api.TimeCharacteristic;
@@ -24,6 +18,9 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 import org.apache.flink.streaming.api.functions.windowing.ProcessAllWindowFunction;
 import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction;
+import org.apache.flink.streaming.api.windowing.assigners.GlobalWindows;
+import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
+import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
 import org.apache.flink.test.util.MiniClusterWithClientResource;
 import org.apache.flink.util.Collector;
@@ -172,6 +169,71 @@ public class TotalTrafficReaderTest {
 	}
 	
 	@Test
+	public void testProcessSourceReduced() throws Exception {
+		
+		CollectSink.values.clear();
+		
+		StreamExecutionEnvironment senv = StreamExecutionEnvironment.getExecutionEnvironment();
+		senv.setParallelism(3);
+		senv.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+
+		ArrayList<NMAJSONData> iterable = TestUtilities.readCSV("metrics_23-03-ordered.csv");
+
+		DataStream<NMAJSONData> source = senv.fromCollection(iterable).filter(TestUtilities.getFilterFunction());
+		
+		source.printToErr();
+		LOG.info("==============  ProcessSource Source - PRINTED  ===============");
+		
+		SingleOutputStreamOperator<Tuple2<Date, Long>> datasource = TotalTrafficReader.processSource(senv, source);
+		
+		
+//		datasource.printToErr();
+		LOG.info("==============  ProcessSource Processed - PRINTED  ===============");
+		datasource
+			.keyBy(new KeySelector<Tuple2<Date,Long>, Date>(){
+
+				@Override
+				public Date getKey(Tuple2<Date, Long> value) throws Exception {
+					return value.f0;
+				}
+				
+			})
+			.window(TumblingEventTimeWindows.of(Time.seconds(1)))
+			.reduce(new ReduceFunction<Tuple2<Date,Long>>() {
+				
+				@Override
+				public Tuple2<Date, Long> reduce(Tuple2<Date, Long> value1, Tuple2<Date, Long> value2) throws Exception {
+					
+					
+					if (value1.f0.equals(value2.f0))
+						return Tuple2.of(value1.f0, value1.f1 + value2.f1);
+					LOG.error(""+value1+" "+value2);
+					throw new RuntimeException();
+				}
+			})
+			.addSink(new CollectSink());
+//		datasource.printToErr();
+		LOG.info("==============  ProcessSource Sink - PRINTED  ===============");
+		senv.execute();
+		
+		for (Tuple2<Date, Long> l : CollectSink.values) {
+			LOG.info(l.toString());
+		}
+		
+		long total = 0l;
+		for (Tuple2<Date, Long> l : CollectSink.values) {
+			total+=l.f1;
+		}
+		
+        // verify your results
+        Assert.assertEquals(29233l, total);
+        
+        Assert.assertEquals(3, CollectSink.values.size());
+        
+
+	}	
+	
+	@Test
 	public void testProcessSourceUnordered() throws Exception {
 		
 		CollectSink.values.clear();
@@ -214,12 +276,13 @@ public class TotalTrafficReaderTest {
 
 	
 	private static class CollectSink implements SinkFunction<Tuple2<Date, Long>> {
-
+		private static final Logger LOG = LoggerFactory.getLogger(CollectSink.class);
         // must be static
         public static final List<Tuple2<Date, Long>> values = Collections.synchronizedList(new ArrayList<Tuple2<Date, Long>>());
 
         @Override
         public void invoke(Tuple2<Date, Long> value) throws Exception {
+        	LOG.info("collect:" + value);
             values.add(value);
         }
     }
