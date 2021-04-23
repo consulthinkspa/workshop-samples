@@ -68,7 +68,7 @@ public class TotalTrafficReader extends AbstractApp {
 			
             AppConfiguration.StreamConfig outputStreamConfig= appConfiguration.getOutputStreamConfig();
 			String outputStreamName = outputStreamConfig.getStream().getStreamName();
-			createStream(inputStreamConfig);
+			createStream(outputStreamConfig);
 			LOG.info("============== output stream  =============== " + outputStreamName);
             
             
@@ -202,7 +202,7 @@ public class TotalTrafficReader extends AbstractApp {
 	}
 	
 	private FlinkPravegaWriter<Tuple2<Date, Long>> getSinkFunction(PravegaConfig pravegaConfig, String outputStreamName) {
-		SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
+		SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd");
 		
 		
 		FlinkPravegaWriter<Tuple2<Date, Long>> sink = FlinkPravegaWriter.<Tuple2<Date, Long>>builder()
