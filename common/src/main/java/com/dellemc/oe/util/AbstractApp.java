@@ -37,13 +37,16 @@ public abstract class AbstractApp implements Runnable {
     public boolean createStream(AppConfiguration.StreamConfig streamConfig) {
         boolean result = false;
         try(StreamManager streamManager = StreamManager.create(appConfiguration.getPravegaConfig().getClientConfig())) {
+        	final boolean scopeIsNew = streamManager.createScope(streamConfig.getStream().getScope());
             StreamConfiguration streamConfiguration = StreamConfiguration.builder()
                     .scalingPolicy(ScalingPolicy.byDataRate(streamConfig.targetRate, streamConfig.scaleFactor, streamConfig.minNumSegments))
                     .build();
             result = streamManager.createStream(streamConfig.stream.getScope(), streamConfig.stream.getStreamName(), streamConfiguration);
+            log.info("Creating Pravega Stream: " +" "+ streamConfig.getStream().getStreamName() +" "+ streamConfig.getStream().getScope() +" ("+scopeIsNew+" )" + streamConfiguration);
         }
         return result;
     }
+    
 
     public StreamInfo getStreamInfo(Stream stream) {
         try(StreamManager streamManager = StreamManager.create(appConfiguration.getPravegaConfig().getClientConfig())) {
