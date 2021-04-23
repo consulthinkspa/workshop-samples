@@ -26,6 +26,8 @@ dependencies {
 	compile "org.apache.flink:flink-test-utils_${flinkScalaVersion}:${flinkVersion}"
     compile "org.apache.flink:flink-runtime_${flinkScalaVersion}:${flinkVersion}"
     
+    compile 'org.influxdb:influxdb-java:2.15'
+    
 	
 	// MongoDB
 	// https://mvnrepository.com/artifact/org.mongodb/mongodb-driver

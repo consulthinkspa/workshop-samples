@@ -44,8 +44,13 @@ public class NMAJSONWriter {
                     .build();
             streamManager.createStream(scope, streamName, streamConfig);
 
-            ClientConfig config = ClientConfig.builder().controllerURI(controllerURI)
-                    .credentials(null).trustStore("").build();
+            ClientConfig config = ClientConfig
+            		.builder()
+            		.controllerURI(controllerURI)
+                    .credentials(null)
+                    .trustStore("")
+                    .build();
+            
             EventStreamClientFactory clientFactory = EventStreamClientFactory.withScope(scope, config);
             // Create  Pravega event writer
 

@@ -127,6 +127,7 @@ public class AppConfiguration {
             scaleFactor = params.getInt(argPrefix + "scaleFactor", 2);
             minNumSegments = params.getInt(argPrefix + "minNumSegments", 3);
         }
+        
 
         public Stream getStream() {
             return stream;

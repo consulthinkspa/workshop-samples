@@ -1,5 +1,12 @@
 package it.consulthink.oe.flink.packetcount;
 
+import static org.junit.Assert.assertThat;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -10,6 +17,8 @@ import org.apache.commons.lang3.time.DateUtils;
 import org.apache.flink.api.common.functions.ReduceFunction;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.connector.jdbc.JdbcConnectionOptions;
+import org.apache.flink.connector.jdbc.JdbcSink;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -18,7 +27,6 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 import org.apache.flink.streaming.api.functions.windowing.ProcessAllWindowFunction;
 import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction;
-import org.apache.flink.streaming.api.windowing.assigners.GlobalWindows;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
@@ -167,6 +175,107 @@ public class TotalTrafficReaderTest {
         Assert.assertEquals(29233l, total);	
 
 	}
+	
+     
+ 
+    /**
+     * Database initialization for testing i.e.
+     * <ul>
+     * <li>Creating Table</li>
+     * <li>Inserting record</li>
+     * </ul>
+     * 
+     * @throws SQLException
+     */
+    private static void initDatabase() throws SQLException {
+        try (Connection connection = getConnection(); Statement statement = connection.createStatement();) {
+            statement.execute("CREATE TABLE total_traffic (event_time TIMESTAMP NOT NULL, traffic BIGINT  NOT NULL, PRIMARY KEY (event_time))");
+            connection.commit();
+//            statement.executeUpdate(
+//                    "INSERT INTO employee VALUES (1001,'Vinod Kumar Kashyap', 'vinod@javacodegeeks.com')");
+//            statement.executeUpdate("INSERT INTO employee VALUES (1002,'Dhwani Kashyap', 'dhwani@javacodegeeks.com')");
+//            statement.executeUpdate("INSERT INTO employee VALUES (1003,'Asmi Kashyap', 'asmi@javacodegeeks.com')");
+            connection.commit();
+        }
+    }
+ 
+    /**
+     * Create a connection
+     * 
+     * @return connection object
+     * @throws SQLException
+     */
+    private static Connection getConnection() throws SQLException {
+        return DriverManager.getConnection("jdbc:hsqldb:mem:nmadb", "nma", "nma");
+    }	
+	
+	@Test
+	public void testProcessSourceToJdbc() throws Exception {
+		
+        Class.forName("org.hsqldb.jdbc.JDBCDriver");
+        
+        // initialize database
+        initDatabase();		
+		
+
+		
+		StreamExecutionEnvironment senv = StreamExecutionEnvironment.getExecutionEnvironment();
+		senv.setParallelism(3);
+		senv.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+
+		ArrayList<NMAJSONData> iterable = TestUtilities.readCSV("metrics_23-03-ordered.csv");
+
+		DataStream<NMAJSONData> source = senv.fromCollection(iterable).filter(TestUtilities.getFilterFunction());
+		
+		source.printToErr();
+		LOG.info("==============  ProcessSource Source - PRINTED  ===============");
+		
+		SingleOutputStreamOperator<Tuple2<Date, Long>> datasource = TotalTrafficReader.processSource(senv, source);
+		
+		
+//		datasource.printToErr();
+		LOG.info("==============  ProcessSource Processed - PRINTED  ===============");
+		datasource.addSink(JdbcSink.sink(
+	            "insert into total_traffic (event_time, traffic) values (?,?)",
+	            (ps, t) -> {
+	                ps.setTimestamp(1, java.sql.Timestamp.from(t.f0.toInstant()));
+	                ps.setLong(2, t.f1);
+	            },
+	            new JdbcConnectionOptions.JdbcConnectionOptionsBuilder()
+	                    .withUrl("jdbc:hsqldb:mem:nmadb")
+	                    .withUsername("nma")
+	                    .withPassword("nma")
+	                    .withDriverName("org.hsqldb.jdbc.JDBCDriver")
+	                    .build()));
+//		datasource.printToErr();
+		LOG.info("==============  ProcessSource Sink - PRINTED  ===============");
+		senv.execute();
+		
+        
+        try (Connection connection = getConnection();
+				Statement statement = connection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE,
+						ResultSet.CONCUR_READ_ONLY);) {
+
+			ResultSet result = statement.executeQuery("SELECT SUM(traffic) FROM total_traffic");
+
+			if (result.first()) {
+				Assert.assertEquals(29233l, result.getLong(0));
+			}
+
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+        
+        
+        try (Connection connection = getConnection(); Statement statement = connection.createStatement();) {
+            statement.executeUpdate("DROP TABLE total_traffic");
+            connection.commit();
+        }        
+
+	}	
+	
+	
+
 	
 	@Test
 	public void testProcessSourceReduced() throws Exception {
