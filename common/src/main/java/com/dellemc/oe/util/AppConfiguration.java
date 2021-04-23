@@ -40,6 +40,10 @@ public class AppConfiguration {
     private String message;
     private String csvDir;
     private Set<String> myIps = new HashSet<String>();
+    private String influxdbUrl =  "http://host.docker.internal:8086";
+    private String influxdbUsername = "admin";
+    private String influxdbPassword = "password";
+	private String influxdbDbName = "demo";    
 
     public AppConfiguration(String[] args) {
         ParameterTool params = ParameterTool.fromArgs(args);
@@ -62,6 +66,10 @@ public class AppConfiguration {
                         "213.61.202.117,213.61.202.118,213.61.202.119," +
                         "213.61.202.120,213.61.202.121,213.61.202.122," +
                         "213.61.202.123,213.61.202.124,213.61.202.125,213.61.202.126").split(",")));
+        influxdbUrl =  params.get("influxdbUrl", "http://host.docker.internal:8086");
+        influxdbUsername = params.get("influxdbUsername", "root");
+        influxdbPassword = params.get("influxdbPassword", "root");
+        influxdbDbName = params.get("influxdbDbName", "demo");           
     }
 
     public String getCsvDir() {return csvDir;}
@@ -70,6 +78,21 @@ public class AppConfiguration {
 		return myIps;
 	}
 
+    public String getInfluxdbUrl() {
+		return influxdbUrl;
+	}
+
+	public String getInfluxdbUsername() {
+		return influxdbUsername;
+	}
+
+	public String getInfluxdbPassword() {
+		return influxdbPassword;
+	}
+
+	public String getInfluxdbDbName() {
+		return influxdbDbName;
+	}
 
 	public String getMessage() {
         return message;

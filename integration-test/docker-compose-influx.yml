@@ -1,0 +1,32 @@
+version: "3.3"
+services:
+  influxdb:
+    image: docker.io/influxdb:latest
+    ports:
+      - 8083:8083
+      - 8086:8086
+    #volumes:
+    #  - ./data:/var/lib/influxdb
+    restart: always
+    environment:
+      INFLUXDB_DB: demo
+      INFLUXDB_HOST: influxdb
+      INFLUXDB_PASSWORD: password
+      INFLUXDB_USERNAME: admin
+
+  grafana:
+    image: docker.io/grafana/grafana:latest
+    restart: always
+    ports:
+      - 3000:3000
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: password
+    volumes:
+      - ./grafana/config/grafana-dashboard-provider.yaml:/etc/grafana/provisioning/dashboards/grafana-dashboard-provider.yaml
+      - ./grafana/config/influxdb-datasource.yaml:/etc/grafana/provisioning/datasources/influxdb-datasource.yaml
+      - ./grafana/config/dashboard.json:/var/lib/grafana/dashboards/dashboard.json      
+    links:
+      - influxdb
+    depends_on:
+      - influxdb
