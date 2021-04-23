@@ -22,6 +22,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.dellemc.oe.serialization.JsonDeserializationSchema;
+import com.dellemc.oe.serialization.JsonSerializationSchema;
 import com.dellemc.oe.util.AbstractApp;
 import com.dellemc.oe.util.AppConfiguration;
 
@@ -62,10 +63,12 @@ public class TotalTrafficReader extends AbstractApp {
         	
             AppConfiguration.StreamConfig inputStreamConfig = appConfiguration.getInputStreamConfig();;
 			String inputStreamName = inputStreamConfig.getStream().getStreamName();
+			createStream(inputStreamConfig);
 			LOG.info("============== input stream  =============== " + inputStreamName);
 			
             AppConfiguration.StreamConfig outputStreamConfig= appConfiguration.getOutputStreamConfig();
 			String outputStreamName = outputStreamConfig.getStream().getStreamName();
+			createStream(inputStreamConfig);
 			LOG.info("============== output stream  =============== " + outputStreamName);
             
             
@@ -210,8 +213,7 @@ public class TotalTrafficReader extends AbstractApp {
 
 		        	
 				})
-		        //TODO controllare la necessita dello scema
-//                .withSerializationSchema(???)
+                .withSerializationSchema(new JsonSerializationSchema<Tuple2<Date, Long>>())
 		        .build();
 		return sink;
 	}	
