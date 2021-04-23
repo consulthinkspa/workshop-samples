@@ -91,7 +91,7 @@ services:
         -Dbookkeeper.ensemble.size=2
         -Dbookkeeper.ack.quorum.size=2
         -Dbookkeeper.write.quorum.size=2
-        -Xmx900m
+        -Xmx512m
         -XX:OnError="kill -9 p%"
         -XX:+ExitOnOutOfMemoryError
         -XX:+CrashOnOutOfMemoryError

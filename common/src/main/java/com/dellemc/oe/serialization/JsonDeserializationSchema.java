@@ -26,7 +26,8 @@ public class JsonDeserializationSchema<T> implements DeserializationSchema<T> {
     @Override
     public T deserialize(byte[] message) throws IOException {
         ObjectMapper objectMapper = new ObjectMapper();
-        return objectMapper.readValue(message, valueType);
+        T readValue = objectMapper.readValue(message, valueType);
+		return readValue;
     }
 
     @Override

@@ -25,7 +25,7 @@ public class TotalTrafficReaderIntegrationTest {
 
 	@ClassRule
 	public static MiniClusterWithClientResource flinkCluster = new MiniClusterWithClientResource(
-			new MiniClusterResourceConfiguration.Builder().setNumberSlotsPerTaskManager(6).setNumberTaskManagers(2)
+			new MiniClusterResourceConfiguration.Builder().setNumberSlotsPerTaskManager(1).setNumberTaskManagers(1)
 					.build());	
 
 	private static String OS = null;
@@ -56,7 +56,13 @@ public class TotalTrafficReaderIntegrationTest {
       		  "--scope", scope,
       		  "--input-stream", inputStreamName,
       		  "--output-stream", outputStreamName,
-      		  "--controller", controllerUri
+      		  "--controller", controllerUri,
+      		  "--input-targetRate", "150",
+      		  "--input-scaleFactor", "1",
+      		  "--input-minNumSegments", "1",
+      		  "--output-targetRate", "150",
+      		  "--output-scaleFactor", "3",
+      		  "--output-minNumSegments", "4"      		  
           };
   		AppConfiguration appConfiguration = new AppConfiguration( args );  
   		
