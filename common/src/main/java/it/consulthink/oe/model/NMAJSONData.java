@@ -12,7 +12,11 @@ public class NMAJSONData implements Serializable {
 	
 	
 	
-//	2021-03-21 23:59:58
+/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+	//	2021-03-21 23:59:58
 	@JsonFormat 
     (shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
 	public Date time;
@@ -216,6 +220,92 @@ public class NMAJSONData implements Serializable {
 
 	public void setPost(long post) {
 		this.post = post;
+	}
+
+
+
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + (int) (bytesin ^ (bytesin >>> 32));
+		result = prime * result + (int) (bytesout ^ (bytesout >>> 32));
+		result = prime * result + ((dport == null) ? 0 : dport.hashCode());
+		result = prime * result + ((dst_ip == null) ? 0 : dst_ip.hashCode());
+		result = prime * result + (int) (get ^ (get >>> 32));
+		result = prime * result + (int) (pkts ^ (pkts >>> 32));
+		result = prime * result + (int) (pktsin ^ (pktsin >>> 32));
+		result = prime * result + (int) (pktsout ^ (pktsout >>> 32));
+		result = prime * result + (int) (post ^ (post >>> 32));
+		result = prime * result + (int) (rstin ^ (rstin >>> 32));
+		result = prime * result + (int) (rstout ^ (rstout >>> 32));
+		result = prime * result + ((sport == null) ? 0 : sport.hashCode());
+		result = prime * result + ((src_ip == null) ? 0 : src_ip.hashCode());
+		result = prime * result + (int) (synackout ^ (synackout >>> 32));
+		result = prime * result + (int) (synin ^ (synin >>> 32));
+		result = prime * result + ((time == null) ? 0 : time.hashCode());
+		return result;
+	}
+
+
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		NMAJSONData other = (NMAJSONData) obj;
+		if (bytesin != other.bytesin)
+			return false;
+		if (bytesout != other.bytesout)
+			return false;
+		if (dport == null) {
+			if (other.dport != null)
+				return false;
+		} else if (!dport.equals(other.dport))
+			return false;
+		if (dst_ip == null) {
+			if (other.dst_ip != null)
+				return false;
+		} else if (!dst_ip.equals(other.dst_ip))
+			return false;
+		if (get != other.get)
+			return false;
+		if (pkts != other.pkts)
+			return false;
+		if (pktsin != other.pktsin)
+			return false;
+		if (pktsout != other.pktsout)
+			return false;
+		if (post != other.post)
+			return false;
+		if (rstin != other.rstin)
+			return false;
+		if (rstout != other.rstout)
+			return false;
+		if (sport == null) {
+			if (other.sport != null)
+				return false;
+		} else if (!sport.equals(other.sport))
+			return false;
+		if (src_ip == null) {
+			if (other.src_ip != null)
+				return false;
+		} else if (!src_ip.equals(other.src_ip))
+			return false;
+		if (synackout != other.synackout)
+			return false;
+		if (synin != other.synin)
+			return false;
+		if (time == null) {
+			if (other.time != null)
+				return false;
+		} else if (!time.equals(other.time))
+			return false;
+		return true;
 	}
     
     

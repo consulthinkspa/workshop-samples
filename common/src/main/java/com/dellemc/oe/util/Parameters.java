@@ -16,7 +16,7 @@ import java.net.URI;
 public class Parameters {
     // By default, we will connect to a standalone Pravega running on localhost.
     public static URI getControllerURI() {
-        return URI.create(getEnvVar("PRAVEGA_CONTROLLER", "tls://pravega-controller.sdp.cluster1.sdp-demo.org:443"));
+        return URI.create(getEnvVar("PRAVEGA_CONTROLLER", "tcp://127.0.0.1:9090"));
     }
     
     public static String getScope() {
