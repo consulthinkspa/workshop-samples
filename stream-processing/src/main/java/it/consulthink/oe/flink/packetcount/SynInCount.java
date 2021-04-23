@@ -1,11 +1,14 @@
 package it.consulthink.oe.flink.packetcount;
 
+import com.dellemc.oe.serialization.JsonDeserializationSchema;
+import com.dellemc.oe.util.AbstractApp;
+import com.dellemc.oe.util.AppConfiguration;
+import io.pravega.connectors.flink.FlinkPravegaReader;
+import io.pravega.connectors.flink.FlinkPravegaWriter;
 import io.pravega.connectors.flink.PravegaConfig;
-import org.apache.flink.api.common.functions.FlatMapFunction;
+import it.consulthink.oe.model.NMAJSONData;
 import org.apache.flink.api.common.functions.ReduceFunction;
-import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
@@ -14,30 +17,15 @@ import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.streaming.api.functions.timestamps.BoundedOutOfOrdernessTimestampExtractor;
 import org.apache.flink.streaming.api.functions.windowing.ProcessAllWindowFunction;
 import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction;
-import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
-import org.apache.flink.table.sources.wmstrategies.WatermarkStrategy;
 import org.apache.flink.util.Collector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.dellemc.oe.serialization.JsonDeserializationSchema;
-import com.dellemc.oe.serialization.JsonSerializationSchema;
-import com.dellemc.oe.util.AbstractApp;
-import com.dellemc.oe.util.AppConfiguration;
-
-import io.pravega.client.ClientConfig;
-import io.pravega.connectors.flink.FlinkPravegaReader;
-import io.pravega.connectors.flink.FlinkPravegaWriter;
-import io.pravega.connectors.flink.PravegaEventRouter;
-import it.consulthink.oe.model.NMAJSONData;
-
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.HashSet;
-import java.util.Set;
 
 /*
  * At a high level, PacketCountReader reads from a Pravega stream, and prints
@@ -51,21 +39,21 @@ import java.util.Set;
  *     controller - the Pravega controller URI, e.g., tcp://localhost:9090
  *                  Note that this parameter is automatically used by the PravegaConfig class
  */
-public class PacketCountReader extends AbstractApp {
+public class SynInCount extends AbstractApp {
 
     // Logger initialization
-    private static final Logger LOG = LoggerFactory.getLogger(PacketCountReader.class);
+    private static final Logger LOG = LoggerFactory.getLogger(SynInCount.class);
 
 
     // The application reads data from specified Pravega stream and once every 10 seconds
     // prints the distinct words and counts from the previous 10 seconds.
-    public PacketCountReader(AppConfiguration appConfiguration){
+    public SynInCount(AppConfiguration appConfiguration){
         super(appConfiguration);
     }
 
     public void run(){
 
-        LOG.info("Starting NMA PacketCountReader...");
+        LOG.info("Starting NMA SynInCount...");
 
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
@@ -107,12 +95,13 @@ public class PacketCountReader extends AbstractApp {
 
         // execute within the Flink environment
         try {
-            env.execute("PacketCountReader");
+            env.execute("SynInCount");
         } catch (Exception e) {
-            LOG.error("Error executing PacketCountReader...");
+            LOG.error("Error executing SynInCount...");
         }finally {
-            LOG.info("Ending NMA PacketCountReader...");
+            LOG.info("Ending NMA SynInCount...");
         }
+
 
     }
 
@@ -149,32 +138,32 @@ public class PacketCountReader extends AbstractApp {
     }
 
     public static ProcessAllWindowFunction<NMAJSONData, Long, TimeWindow> getProcessAllWindowFunction() {
-        ProcessAllWindowFunction<NMAJSONData, Long, TimeWindow> sumPkts = new ProcessAllWindowFunction<NMAJSONData, Long, TimeWindow>() {
+        ProcessAllWindowFunction<NMAJSONData, Long, TimeWindow> sumSynIn = new ProcessAllWindowFunction<NMAJSONData, Long, TimeWindow>() {
 
             @Override
             public void process(ProcessAllWindowFunction<NMAJSONData, Long, TimeWindow>.Context ctx,
                                 Iterable<NMAJSONData> iterable, Collector<Long> collector) throws Exception {
 
                 for (NMAJSONData element : iterable) {
-                    collector.collect(element.getPkts());
+                    collector.collect(element.getSynin());
                 }
             }
 
         };
-        return sumPkts;
+        return sumSynIn;
     }
 
     public static ProcessWindowFunction<NMAJSONData, Tuple2<Date, Long>, Date, TimeWindow> getProcessFunction() {
-        ProcessWindowFunction<NMAJSONData, Tuple2<Date, Long>, Date, TimeWindow> sumPkts = new ProcessWindowFunction<NMAJSONData, Tuple2<Date, Long>, Date, TimeWindow>() {
+        ProcessWindowFunction<NMAJSONData, Tuple2<Date, Long>, Date, TimeWindow> sumSynIn = new ProcessWindowFunction<NMAJSONData, Tuple2<Date, Long>, Date, TimeWindow>() {
 
             @Override
             public void process(Date key,ProcessWindowFunction<NMAJSONData, Tuple2<Date, Long>, Date, TimeWindow>.Context ctx,Iterable<NMAJSONData> iterable, Collector<Tuple2<Date, Long>> collector) throws Exception {
                 for (NMAJSONData element : iterable) {
-                    collector.collect(Tuple2.of(key, element.getPkts()));
+                    collector.collect(Tuple2.of(key, element.getSynin()));
                 }
             }
         };
-        return sumPkts;
+        return sumSynIn;
     }
 
 
@@ -197,17 +186,17 @@ public class PacketCountReader extends AbstractApp {
         FlinkPravegaWriter<Tuple2<Date, Long>> sink = FlinkPravegaWriter.<Tuple2<Date, Long>>builder()
                 .withPravegaConfig(pravegaConfig)
                 .forStream(outputStreamName)
-                .withEventRouter((a) -> "TotalPackets")
-//                .withSerializationSchema(???)
+                .withEventRouter((a) -> "SynInPerSecond")
+//                .withSerializationSchema(?)
                 .build();
         return sink;
     }
 
 
     public static void main(String[] args) throws Exception {
-        LOG.info("Starting PacketCountReader...");
+        LOG.info("Starting SynInCount...");
         AppConfiguration appConfiguration = new AppConfiguration(args);
-        PacketCountReader reader = new PacketCountReader(appConfiguration);
+        SynInCount reader = new SynInCount(appConfiguration);
         reader.run();
     }
 

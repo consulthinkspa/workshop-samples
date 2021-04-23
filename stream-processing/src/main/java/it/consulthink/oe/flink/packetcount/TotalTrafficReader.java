@@ -166,38 +166,19 @@ public class TotalTrafficReader extends AbstractApp {
 		
 		
 		SingleOutputStreamOperator<Tuple2<Date, Long>> dataStream = source
-				.assignTimestampsAndWatermarks(timestampAndWatermarkAssigner)
-				.keyBy(new KeySelector<NMAJSONData, Date>(){
-
-					@Override
-					public Date getKey(NMAJSONData value) throws Exception {
-						return value.getTime();
-					}
-					
-				})
-				.window(TumblingEventTimeWindows.of(Time.seconds(1)))
-				.process(getProcessFunction())
-				.keyBy(new KeySelector<Tuple2<Date,Long>, Date>(){
-
-					@Override
-					public Date getKey(Tuple2<Date, Long> value) throws Exception {
-						return value.f0;
-					}
-					
-				})
-				.window(TumblingEventTimeWindows.of(Time.seconds(1)))
-				.reduce(new ReduceFunction<Tuple2<Date,Long>>() {
-					
-					@Override
-					public Tuple2<Date, Long> reduce(Tuple2<Date, Long> value1, Tuple2<Date, Long> value2) throws Exception {
-						
-						
-						if (value1.f0.equals(value2.f0))
-							return Tuple2.of(value1.f0, value1.f1 + value2.f1);
-						LOG.error(""+value1+" "+value2);
-						throw new RuntimeException();
-					}
+				.assignTimestampsAndWatermarks(timestampAndWatermarkAssigner)           // extract timestamp and wm strategy
+				.keyBy((NMAJSONData x) -> x.getTime())                                  // key by date
+				.window(TumblingEventTimeWindows.of(Time.seconds(1)))                   // aggregate in 1 sec windows
+				.process(getProcessFunction())                                          // process elements in window
+				.keyBy((Tuple2<Date,Long> x) -> x.f0)                                   // key all processed elements by date (again)
+				.window(TumblingEventTimeWindows.of(Time.seconds(1)))                   // aggregate them in 1 sec windows
+				.reduce((Tuple2<Date,Long> v1, Tuple2<Date,Long> v2) -> {				// reduce by merging events with same timestamp
+					if(v1.f0.equals(v2.f0))
+						return Tuple2.of(v1.f0,v1.f1 + v2.f1);
+					LOG.error(""+v1+" "+v2);
+					throw new RuntimeException();
 				});
+
 		return dataStream;
 	}
 
