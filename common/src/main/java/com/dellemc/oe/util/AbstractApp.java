@@ -26,7 +26,7 @@ import java.util.ArrayList;
 
 public abstract class AbstractApp implements Runnable {
 
-    private static Logger log = LoggerFactory.getLogger( AbstractApp.class );
+    private static Logger LOG = LoggerFactory.getLogger( AbstractApp.class );
 
     protected final AppConfiguration appConfiguration;
 
@@ -37,12 +37,19 @@ public abstract class AbstractApp implements Runnable {
     public boolean createStream(AppConfiguration.StreamConfig streamConfig) {
         boolean result = false;
         try(StreamManager streamManager = StreamManager.create(appConfiguration.getPravegaConfig().getClientConfig())) {
-        	final boolean scopeIsNew = streamManager.createScope(streamConfig.getStream().getScope());
+        	if (streamManager.checkScopeExists(streamConfig.getStream().getScope())) {
+        		streamManager.createScope(streamConfig.getStream().getScope());
+        	}
             StreamConfiguration streamConfiguration = StreamConfiguration.builder()
-                    .scalingPolicy(ScalingPolicy.byDataRate(streamConfig.targetRate, streamConfig.scaleFactor, streamConfig.minNumSegments))
+                    .scalingPolicy(ScalingPolicy.byDataRate(streamConfig.getTargetRate(), streamConfig.getScaleFactor(), streamConfig.getMinNumSegments()))
                     .build();
-            result = streamManager.createStream(streamConfig.stream.getScope(), streamConfig.stream.getStreamName(), streamConfiguration);
-            log.info("Creating Pravega Stream: " +" "+ streamConfig.getStream().getStreamName() +" "+ streamConfig.getStream().getScope() +" ("+scopeIsNew+" )" + streamConfiguration);
+        	if (streamManager.checkStreamExists(streamConfig.getStream().getScope(), streamConfig.getStream().getStreamName())){
+                result = streamManager.updateStream(streamConfig.getStream().getScope(), streamConfig.getStream().getStreamName(), streamConfiguration);        		
+        	}else {
+                result = streamManager.createStream(streamConfig.getStream().getScope(), streamConfig.getStream().getStreamName(), streamConfiguration);
+        	}
+
+            LOG.info("Creating Pravega Stream: " +" "+ streamConfig.getStream().getStreamName() +" "+ streamConfig.getStream().getScope() + streamConfiguration);
         }
         return result;
     }
@@ -69,7 +76,7 @@ public abstract class AbstractApp implements Runnable {
             long checkpointInterval = appConfiguration.getCheckpointInterval();
             env.enableCheckpointing(checkpointInterval, CheckpointingMode.EXACTLY_ONCE);
         }
-        log.info("Parallelism={}, MaxParallelism={}", env.getParallelism(), env.getMaxParallelism());
+        LOG.info("Parallelism={}, MaxParallelism={}", env.getParallelism(), env.getMaxParallelism());
         return env;
     }
 
@@ -82,7 +89,7 @@ public abstract class AbstractApp implements Runnable {
         if (parallelism > 0) {
             env.setParallelism(parallelism);
         }
-        log.info("Parallelism={}", env.getParallelism());
+        LOG.info("Parallelism={}", env.getParallelism());
         return env;
     }
 }

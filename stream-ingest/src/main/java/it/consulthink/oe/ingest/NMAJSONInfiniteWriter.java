@@ -41,12 +41,19 @@ public class NMAJSONInfiniteWriter implements Runnable{
     public boolean createStream(AppConfiguration.StreamConfig streamConfig) {
         boolean result = false;
         try(StreamManager streamManager = StreamManager.create(appConfiguration.getPravegaConfig().getClientConfig())) {
-        	final boolean scopeIsNew = streamManager.createScope(streamConfig.getStream().getScope());
+        	if (streamManager.checkScopeExists(streamConfig.getStream().getScope())) {
+        		streamManager.createScope(streamConfig.getStream().getScope());
+        	}
             StreamConfiguration streamConfiguration = StreamConfiguration.builder()
                     .scalingPolicy(ScalingPolicy.byDataRate(streamConfig.getTargetRate(), streamConfig.getScaleFactor(), streamConfig.getMinNumSegments()))
                     .build();
-            result = streamManager.createStream(streamConfig.getStream().getScope(), streamConfig.getStream().getStreamName(), streamConfiguration);
-            LOG.info("Creating Pravega Stream: " +" "+ streamConfig.getStream().getStreamName() +" "+ streamConfig.getStream().getScope() +" ("+scopeIsNew+" )" + streamConfiguration);
+        	if (streamManager.checkStreamExists(streamConfig.getStream().getScope(), streamConfig.getStream().getStreamName())){
+                result = streamManager.updateStream(streamConfig.getStream().getScope(), streamConfig.getStream().getStreamName(), streamConfiguration);        		
+        	}else {
+                result = streamManager.createStream(streamConfig.getStream().getScope(), streamConfig.getStream().getStreamName(), streamConfiguration);
+        	}
+
+            LOG.info("Creating Pravega Stream: " +" "+ streamConfig.getStream().getStreamName() +" "+ streamConfig.getStream().getScope() + streamConfiguration);
         }
         return result;
     }

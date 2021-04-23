@@ -25,4 +25,5 @@ include "operational"
 include "stream-ingest"
 include "stream-processing"
 include "stream-readers"
+include "integration-test"
 

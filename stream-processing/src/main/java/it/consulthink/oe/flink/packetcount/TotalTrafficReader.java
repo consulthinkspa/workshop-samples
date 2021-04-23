@@ -123,7 +123,9 @@ public class TotalTrafficReader extends AbstractApp {
 					Iterable<NMAJSONData> iterable, Collector<Long> collector) throws Exception {
 				
 				for (NMAJSONData element : iterable) {
-					collector.collect(element.getBytesin() + element.getBytesout());
+					long totalTraffic = element.getBytesin() + element.getBytesout();
+					LOG.info("Collecting: "+totalTraffic+" FROM "+element);
+					collector.collect(totalTraffic);
 				}
 			}
 			
