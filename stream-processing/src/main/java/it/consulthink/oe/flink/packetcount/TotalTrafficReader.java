@@ -139,7 +139,9 @@ public class TotalTrafficReader extends AbstractApp {
 			@Override
 			public void process(Date key,ProcessWindowFunction<NMAJSONData, Tuple2<Date, Long>, Date, TimeWindow>.Context ctx,Iterable<NMAJSONData> iterable, Collector<Tuple2<Date, Long>> collector) throws Exception {
 				for (NMAJSONData element : iterable) {
-					collector.collect(Tuple2.of(key, element.getBytesin() + element.getBytesout()));
+					long totalTraffic = element.getBytesin() + element.getBytesout();
+					LOG.info("Collecting: "+totalTraffic+" FROM "+element);
+					collector.collect(Tuple2.of(key, totalTraffic));
 				}
 			}
 

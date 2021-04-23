@@ -37,7 +37,7 @@ public abstract class AbstractApp implements Runnable {
     public boolean createStream(AppConfiguration.StreamConfig streamConfig) {
         boolean result = false;
         try(StreamManager streamManager = StreamManager.create(appConfiguration.getPravegaConfig().getClientConfig())) {
-        	if (streamManager.checkScopeExists(streamConfig.getStream().getScope())) {
+        	if (!streamManager.checkScopeExists(streamConfig.getStream().getScope())) {
         		streamManager.createScope(streamConfig.getStream().getScope());
         	}
             StreamConfiguration streamConfiguration = StreamConfiguration.builder()
