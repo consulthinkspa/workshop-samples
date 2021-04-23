@@ -22,7 +22,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
-public class PacketCountReaderTest {
+public class SynAckOutCountTest {
 
     private static final Logger LOG = LoggerFactory.getLogger(TrafficByDirectionTest.class);
 
@@ -34,7 +34,7 @@ public class PacketCountReaderTest {
 
     @Test
     public void testProcessAllWindowFunction() throws Exception {
-        ProcessAllWindowFunction<NMAJSONData, Long, TimeWindow> sumPackets = PacketCountReader.getProcessAllWindowFunction();
+        ProcessAllWindowFunction<NMAJSONData, Long, TimeWindow> sumPackets = SynAckOutCount.getProcessAllWindowFunction();
 
         Collector<Long> collector = new Collector<Long>() {
             Long collected = 0l;
@@ -59,14 +59,14 @@ public class PacketCountReaderTest {
 
         sumPackets.process(null, iterable, collector);
 
-        Assert.assertEquals("52873", collector.toString());
+        Assert.assertEquals("20040", collector.toString());
 
     }
 
 
     @Test
     public void testProcessFunction() throws Exception {
-        ProcessWindowFunction<NMAJSONData, Tuple2<Date, Long>, Date, TimeWindow> sumBytes = PacketCountReader.getProcessFunction();
+        ProcessWindowFunction<NMAJSONData, Tuple2<Date, Long>, Date, TimeWindow> sumBytes = SynAckOutCount.getProcessFunction();
 
         Collector<Tuple2<Date, Long>> collector = new Collector<Tuple2<Date, Long>>() {
             Long collected = 0l;
@@ -103,10 +103,10 @@ public class PacketCountReaderTest {
 
 
         iterable = Arrays.asList(
-                new NMAJSONData(example, "", "", "", "", 0l, 0l,1l,0l,0l,0l,0l,0l,0l,0l,0l),
-                new NMAJSONData(example, "", "", "", "", 0l, 0l,2l,0l,0l,0l,0l,0l,0l,0l,0l),
-                new NMAJSONData(example, "", "", "", "", 0l, 0l,3l,0l,0l,0l,0l,0l,0l,0l,0l),
-                new NMAJSONData(example, "", "", "", "", 0l, 0l,4l,0l,0l,0l,0l,0l,0l,0l,0l)
+                new NMAJSONData(example, "", "", "", "", 0l, 0l,1l,0l,0l,0l,1l,0l,0l,0l,0l),
+                new NMAJSONData(example, "", "", "", "", 0l, 0l,2l,0l,0l,0l,2l,0l,0l,0l,0l),
+                new NMAJSONData(example, "", "", "", "", 0l, 0l,3l,0l,0l,0l,3l,0l,0l,0l,0l),
+                new NMAJSONData(example, "", "", "", "", 0l, 0l,4l,0l,0l,0l,4l,0l,0l,0l,0l)
         );
 
         sumBytes.process(example, ctx, iterable, collector);
@@ -120,7 +120,7 @@ public class PacketCountReaderTest {
     @Test
     public void testProcessSource() throws Exception {
 
-        PacketCountReaderTest.CollectSink.values.clear();
+        SynAckOutCountTest.CollectSink.values.clear();
 
         StreamExecutionEnvironment senv = StreamExecutionEnvironment.getExecutionEnvironment();
         senv.setParallelism(3);
@@ -133,27 +133,27 @@ public class PacketCountReaderTest {
         source.printToErr();
         LOG.info("==============  ProcessSource Source - PRINTED  ===============");
 
-        SingleOutputStreamOperator<Tuple2<Date, Long>> datasource = PacketCountReader.processSource(senv, source);
+        SingleOutputStreamOperator<Tuple2<Date, Long>> datasource = SynAckOutCount.processSource(senv, source);
 
 
 //		datasource.printToErr();
         LOG.info("==============  ProcessSource Processed - PRINTED  ===============");
-        datasource.addSink(new PacketCountReaderTest.CollectSink());
+        datasource.addSink(new SynAckOutCountTest.CollectSink());
 //		datasource.printToErr();
         LOG.info("==============  ProcessSource Sink - PRINTED  ===============");
         senv.execute();
 
-        for (Tuple2<Date, Long> l : PacketCountReaderTest.CollectSink.values) {
+        for (Tuple2<Date, Long> l : SynAckOutCountTest.CollectSink.values) {
             LOG.info(l.toString());
         }
 
         long total = 0l;
-        for (Tuple2<Date, Long> l : PacketCountReaderTest.CollectSink.values) {
+        for (Tuple2<Date, Long> l : SynAckOutCountTest.CollectSink.values) {
             total+=l.f1;
         }
 
         // verify your results
-        Assert.assertEquals(97l, total);
+        Assert.assertEquals(46l, total);
 
     }
 

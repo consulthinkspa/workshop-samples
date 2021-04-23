@@ -1,19 +1,14 @@
 package it.consulthink.oe.flink.packetcount;
 
 import com.dellemc.oe.serialization.JsonDeserializationSchema;
-import com.dellemc.oe.serialization.JsonSerializationSchema;
 import com.dellemc.oe.util.AbstractApp;
 import com.dellemc.oe.util.AppConfiguration;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import io.pravega.client.ClientConfig;
 import io.pravega.connectors.flink.FlinkPravegaReader;
 import io.pravega.connectors.flink.FlinkPravegaWriter;
 import io.pravega.connectors.flink.PravegaConfig;
-import io.pravega.connectors.flink.PravegaEventRouter;
 import it.consulthink.oe.model.NMAJSONData;
-import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.api.java.functions.KeySelector;
-import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -30,30 +25,27 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
-import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.Set;
 
-public class TrafficByDirection extends AbstractApp {
+public class PacketsByDirection extends AbstractApp {
 
 
     // Logger initialization
-    private static final Logger LOG = LoggerFactory.getLogger(TrafficByDirection.class);
+    private static final Logger LOG = LoggerFactory.getLogger(PacketsByDirection.class);
 
     Set<String> ipList = appConfiguration.getMyIps();
 
     // The application reads data from specified Pravega stream and once every 10 seconds
     // prints the distinct words and counts from the previous 10 seconds.
-    public TrafficByDirection(AppConfiguration appConfiguration){
+    public PacketsByDirection(AppConfiguration appConfiguration){
         super(appConfiguration);
     }
 
     public void run(){
 
 
-
-        LOG.info("Starting NMA TrafficByDirection...");
+        LOG.info("Starting NMA PacketsByDirection...");
 
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
@@ -84,7 +76,7 @@ public class TrafficByDirection extends AbstractApp {
 
         FlinkPravegaWriter<Traffic> sink = getSinkFunction(pravegaConfig, outputStreamName);
 
-        dataStream.addSink(sink).name("NMATrafficByDirectionStream");
+        dataStream.addSink(sink).name("NMAPacketsByDirectionStream");
 
         // create another output sink to print to stdout for verification
         dataStream.printToErr();
@@ -92,11 +84,11 @@ public class TrafficByDirection extends AbstractApp {
 
 
         try {
-            env.execute("TrafficByDirection");
+            env.execute("PacketsByDirection");
         } catch (Exception e) {
-            LOG.error("Error executing TrafficByDirection...");
+            LOG.error("Error executing PacketsByDirection...");
         } finally {
-            LOG.info("Ending NMA TrafficByDirection");
+            LOG.info("Ending NMA PacketsByDirection");
         }
     }
 
@@ -121,7 +113,8 @@ public class TrafficByDirection extends AbstractApp {
         FlinkPravegaWriter<Traffic> sink = FlinkPravegaWriter.<Traffic>builder()
                 .withPravegaConfig(pravegaConfig)
                 .forStream(outputStreamName)
-                .withEventRouter((x) -> "TrafficByDirection")
+                .withEventRouter((x) -> "PacketsByDirection")
+                //TODO controllare la necessita dello scema
 //                .withSerializationSchema(???)
                 .build();
         return sink;
@@ -136,8 +129,7 @@ public class TrafficByDirection extends AbstractApp {
         //setting the Time and Wm Extractor
         BoundedOutOfOrdernessTimestampExtractor<NMAJSONData> timestampAndWatermarkAssigner = getTimestampAndWatermarkAssigner();
 
-        //TODO qui come gestire la doppia aggregazione?
-        //TODO concatenare le due keyby oppure processare la prima finestra e poi procedere alla seconda?
+
         SingleOutputStreamOperator<Traffic> dataStream = source
                 .assignTimestampsAndWatermarks(timestampAndWatermarkAssigner)
                 .keyBy((NMAJSONData x) -> x.getTime())
@@ -147,8 +139,7 @@ public class TrafficByDirection extends AbstractApp {
                     } else {
                         return "Lateral";
                     }
-                })
-                .window(TumblingEventTimeWindows.of(Time.seconds(1)))
+                }).window(TumblingEventTimeWindows.of(Time.seconds(1)))
                 .process(getProcessFunction())
                 .map((a) -> new Traffic(a.f0, a.f1, a.f2));
 
@@ -179,14 +170,14 @@ public class TrafficByDirection extends AbstractApp {
                 if (key.equals("notLateral")) {
 
                     for (NMAJSONData data : elements) {
-                        inbound += data.getBytesin();
-                        outbound += data.getBytesout();
+                        inbound += data.getPktsin();
+                        outbound += data.getPktsout();
                     }
 
                 } else {
 
                     for (NMAJSONData data : elements) {
-                        lateral += data.getBytesin() + data.getBytesout();
+                        lateral += data.getPkts();
                     }
                 }
 
@@ -226,7 +217,7 @@ public class TrafficByDirection extends AbstractApp {
     public static void main(String[] args) throws Exception {
         LOG.info("Starting PacketCountReader...");
         AppConfiguration appConfiguration = new AppConfiguration(args);
-        TrafficByDirection reader = new TrafficByDirection(appConfiguration);
+        PacketsByDirection reader = new PacketsByDirection(appConfiguration);
         reader.run();
     }
 
