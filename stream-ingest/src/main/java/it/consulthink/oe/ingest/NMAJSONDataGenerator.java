@@ -26,6 +26,7 @@ public class NMAJSONDataGenerator {
 	private static final Random r = new Random(System.currentTimeMillis());
 	
 	public static final HashMap<String, Long> ips = new HashMap<String, Long>();
+	public static final HashMap<String, Long> ipsLocal = new HashMap<String, Long>();
 	
 	private static String generateWellKnownPort() {
 		boolean isWebPort = r.nextInt(3) == 0;
@@ -55,6 +56,30 @@ public class NMAJSONDataGenerator {
 	
 	private static long generatePacketsOut() {
 		return r.nextInt(216);
+	}	
+	
+	private static String generateRandomLocalIP() {
+		String result = null; 
+		if (ipsLocal.size() == 0 || r.nextInt(50) == 0) {
+			result = 10 + "." + 10 + "." + 10 + "." + r.nextInt(256);
+			if (ips.containsKey(result)) {
+				ipsLocal.put(result, ipsLocal.get(result) +1l);
+			}else {
+				ipsLocal.put(result, 1l);
+			}
+		}else {
+			Iterator<String> iterator = ipsLocal.keySet().iterator();
+			Long max = Collections.max(ipsLocal.values());
+			int v = r.nextInt(ipsLocal.size());
+			for (int i = 0; iterator.hasNext(); i++) {
+				result = iterator.next();
+				if (i >= v && ipsLocal.get(result) < max)
+					break;
+			}
+			ipsLocal.put(result, ipsLocal.get(result) +1l);
+		}
+		
+		return result;
 	}	
 	
 	private static String generateRandomIP() {
@@ -151,8 +176,8 @@ public class NMAJSONDataGenerator {
 		String src_ip;
 		String dst_ip;
 		if (lateral) {
-			src_ip = generateRandomIP();
-			dst_ip = generateRandomIP();
+			src_ip = generateRandomLocalIP();
+			dst_ip = generateRandomLocalIP();
 		}else {
 			boolean isSrcIpMyIp = r.nextBoolean();
 			src_ip = isSrcIpMyIp ? myIps.get(r.nextInt(myIps.size())) : generateRandomIP();
