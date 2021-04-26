@@ -41,11 +41,18 @@ public class AppConfiguration {
     private String csvDir;
     private Set<String> myIps = new HashSet<String>();
     private String influxdbUrl =  "http://host.docker.internal:8086";
+    
+    private String influxdbVersion = "1";
+    
     private String influxdbUsername = "admin";
     private String influxdbPassword = "password";
-	private String influxdbDbName = "demo";    
+    private String influxdbDb = "nma";
 
-    public AppConfiguration(String[] args) {
+	private String influxdbOrg = "it.consulthink";
+    private String influxdbToken = "D1ARPWX51_G5fP93DI9TYB13cvP_E0qN4yzFDktafhpzXul2-ItLLqKben2qyzMnjkibyAd-ag4A14Iifrq95A==";
+	private String influxdbBucket = "nma";    
+
+	public AppConfiguration(String[] args) {
         ParameterTool params = ParameterTool.fromArgs(args);
         log.info("Parameter Tool: {}", params.toMap());
 
@@ -61,15 +68,23 @@ public class AppConfiguration {
         dataFile = params.get("dataFile", "earthquakes1970-2014.csv");
         message = params.get("message", "hello world");
         csvDir = params.get("csvDir", "/mnt/flink");
+        
         myIps = new HashSet<String>(Arrays.asList(params.get("myIps",
                 "213.61.202.114,213.61.202.115,213.61.202.116," +
                         "213.61.202.117,213.61.202.118,213.61.202.119," +
                         "213.61.202.120,213.61.202.121,213.61.202.122," +
                         "213.61.202.123,213.61.202.124,213.61.202.125,213.61.202.126").split(",")));
+        
         influxdbUrl =  params.get("influxdbUrl", "http://host.docker.internal:8086");
-        influxdbUsername = params.get("influxdbUsername", "root");
-        influxdbPassword = params.get("influxdbPassword", "root");
-        influxdbDbName = params.get("influxdbDbName", "demo");           
+        influxdbVersion =  params.get("influxdbVersion", "1");
+        
+        influxdbUsername =  params.get("influxdbUsername", "admin");
+        influxdbPassword =  params.get("influxdbPassword", "password");
+        influxdbDb =  params.get("influxdbDb", "nma");
+        
+        influxdbOrg = params.get("influxdbOrg", "it.consulthink");
+        influxdbToken = params.get("influxdbToken", "D1ARPWX51_G5fP93DI9TYB13cvP_E0qN4yzFDktafhpzXul2-ItLLqKben2qyzMnjkibyAd-ag4A14Iifrq95A==");
+        influxdbBucket = params.get("influxdbBucket", "nma");           
     }
 
     public String getCsvDir() {return csvDir;}
@@ -77,9 +92,14 @@ public class AppConfiguration {
     public Set<String> getMyIps() {
 		return myIps;
 	}
-
+    
     public String getInfluxdbUrl() {
 		return influxdbUrl;
+	}
+    
+
+	public String getInfluxdbVersion() {
+		return influxdbVersion;
 	}
 
 	public String getInfluxdbUsername() {
@@ -90,8 +110,20 @@ public class AppConfiguration {
 		return influxdbPassword;
 	}
 
-	public String getInfluxdbDbName() {
-		return influxdbDbName;
+	public String getInfluxdbDb() {
+		return influxdbDb;
+	}
+
+	public String getInfluxdbOrg() {
+		return influxdbOrg;
+	}
+
+	public String getInfluxdbToken() {
+		return influxdbToken;
+	}
+
+	public String getInfluxdbBucket() {
+		return influxdbBucket;
 	}
 
 	public String getMessage() {

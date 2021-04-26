@@ -10,21 +10,19 @@ import org.apache.flink.streaming.api.datastream.KeyedStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
-import org.apache.flink.streaming.api.functions.windowing.ProcessAllWindowFunction;
-import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
-import org.apache.flink.util.Collector;
-import org.influxdb.dto.Point;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.dellemc.oe.serialization.JsonDeserializationSchema;
 import com.dellemc.oe.util.AbstractApp;
 import com.dellemc.oe.util.AppConfiguration;
+import com.influxdb.client.WriteApi;
+import com.influxdb.client.domain.WritePrecision;
 
 import io.pravega.connectors.flink.FlinkPravegaReader;
 import io.pravega.connectors.flink.PravegaConfig;
+import it.consulthink.oe.db.InfluxDB2Sink;
 import it.consulthink.oe.db.InfluxDBSink;
-import it.consulthink.oe.model.NMAJSONData;
 
 /*
  * At a high level, TotalTrafficReader reads from a Pravega stream, and prints
@@ -75,12 +73,27 @@ public class TotalTrafficReaderToInflux extends AbstractApp {
 		LOG.info("==============  ProcessSource - PRINTED  ===============");
 
 		String influxdbUrl = appConfiguration.getInfluxdbUrl();
+		
+		String influxdbVersion = appConfiguration.getInfluxdbVersion();
 
 		String influxdbUsername = appConfiguration.getInfluxdbUsername();
 		String influxdbPassword = appConfiguration.getInfluxdbPassword();
-		String influxdbDbName = appConfiguration.getInfluxdbDbName();
+		String influxdbDbName = appConfiguration.getInfluxdbDb();
+		
 
-		RichSinkFunction<Tuple2<Date, Long>> sink = getSink(inputStreamName, influxdbUrl, influxdbUsername,	influxdbPassword, influxdbDbName);
+		String org = appConfiguration.getInfluxdbOrg();
+		String token = appConfiguration.getInfluxdbToken();
+		String bucket = appConfiguration.getInfluxdbBucket();
+
+		RichSinkFunction<Tuple2<Date, Long>> sink = null;
+		
+		
+		
+		if (influxdbVersion.equals("1")) {
+			sink = getSink1(inputStreamName, influxdbUrl, influxdbUsername, influxdbPassword, influxdbDbName);
+		}else {
+			sink = getSink2(inputStreamName, influxdbUrl, org, token, bucket);
+		}
 
 		dataStream.addSink(sink).name("InfluxTotalTrafficStream");
 
@@ -99,7 +112,7 @@ public class TotalTrafficReaderToInflux extends AbstractApp {
 
 	}
 
-	public static RichSinkFunction<Tuple2<Date, Long>> getSink(String inputStreamName, String influxdbUrl,
+	public static RichSinkFunction<Tuple2<Date, Long>> getSink1(String inputStreamName, String influxdbUrl,
 			String influxdbUsername, String influxdbPassword, String influxdbDbName) {
 		InfluxDBSink<Tuple2<Date, Long>> sink = new InfluxDBSink<Tuple2<Date, Long>>(influxdbUrl, influxdbUsername,
 				influxdbPassword, influxdbDbName) {
@@ -108,8 +121,10 @@ public class TotalTrafficReaderToInflux extends AbstractApp {
 			public void invoke(Tuple2<Date, Long> value) {
 				try {
 					getInfluxDB()
-							.write(Point.measurement(inputStreamName).time(value.f0.getTime(), TimeUnit.MILLISECONDS)
-									.addField("TOTALTRAFFIC", value.f1).build());
+							.write(org.influxdb.dto.Point.measurement(inputStreamName)
+									.time(value.f0.getTime(), TimeUnit.MILLISECONDS)
+									.addField("value", value.f1)
+									.build());
 				} catch (Exception e) {
 					LOG.error("Error on TotalTraffic " + value, e);
 				}
@@ -119,6 +134,27 @@ public class TotalTrafficReaderToInflux extends AbstractApp {
 		};
 		return sink;
 	}
+	
+	public static RichSinkFunction<Tuple2<Date, Long>> getSink2(String inputStreamName, String influxdbUrl,
+			String org, String token, String bucket) {
+		InfluxDB2Sink<Tuple2<Date, Long>> sink = new InfluxDB2Sink<Tuple2<Date, Long>>(influxdbUrl, org, token, bucket) {
+
+			@Override
+			public void invoke(Tuple2<Date, Long> value) {
+		        try (WriteApi writeApi = getInfluxDB().getWriteApi()) {
+
+		        	com.influxdb.client.write.Point point = com.influxdb.client.write.Point.measurement(inputStreamName)
+		                    .addField("value", value.f1)
+		                    .addTag("class", TotalTrafficReaderToInflux.class.getSimpleName())
+		                    .time(value.f0.getTime(), WritePrecision.MS);
+
+		            writeApi.writePoint(point);
+		        }					
+			}
+
+		};
+		return sink;
+	}	
 
 
 	@SuppressWarnings("unchecked")

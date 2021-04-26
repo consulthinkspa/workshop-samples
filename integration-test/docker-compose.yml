@@ -103,8 +103,8 @@ services:
       - bookie2
       - bookie3
 
-  influxdb:
-    image: docker.io/influxdb:latest
+  influxdb1:
+    image: docker.io/influxdb:1.7
     ports:
       - 8083:8083
       - 8086:8086
@@ -112,8 +112,8 @@ services:
     #  - ./data:/var/lib/influxdb
     restart: always
     environment:
-      INFLUXDB_DB: demo
-      INFLUXDB_HOST: influxdb
+      INFLUXDB_DB: nma
+      INFLUXDB_HOST: influxdb1
       INFLUXDB_PASSWORD: password
       INFLUXDB_USERNAME: admin
 
@@ -130,6 +130,6 @@ services:
       - ./grafana/config/influxdb-datasource.yaml:/etc/grafana/provisioning/datasources/influxdb-datasource.yaml
       - ./grafana/config/dashboard.json:/var/lib/grafana/dashboards/dashboard.json      
     links:
-      - influxdb
+      - influxdb1
     depends_on:
-      - influxdb
+      - influxdb1

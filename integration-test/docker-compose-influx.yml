@@ -1,7 +1,7 @@
 version: "3.3"
 services:
-  influxdb:
-    image: docker.io/influxdb:latest
+  influxdb1:
+    image: docker.io/influxdb:1.7
     ports:
       - 8083:8083
       - 8086:8086
@@ -9,10 +9,26 @@ services:
     #  - ./data:/var/lib/influxdb
     restart: always
     environment:
-      INFLUXDB_DB: demo
+      INFLUXDB_DB: nma
       INFLUXDB_HOST: influxdb
       INFLUXDB_PASSWORD: password
       INFLUXDB_USERNAME: admin
+
+  influxdb2:
+    image: docker.io/influxdb:2.0
+    ports:
+      #- 8183:8083
+      - 8186:8086
+    #volumes:
+    #  - ./data:/var/lib/influxdb
+    restart: always
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: password
+      DOCKER_INFLUXDB_INIT_ORG: it.consulthink
+      DOCKER_INFLUXDB_INIT_BUCKET: nma
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: D1ARPWX51_G5fP93DI9TYB13cvP_E0qN4yzFDktafhpzXul2-ItLLqKben2qyzMnjkibyAd-ag4A14Iifrq95A==
 
   grafana:
     image: docker.io/grafana/grafana:latest
@@ -27,6 +43,8 @@ services:
       - ./grafana/config/influxdb-datasource.yaml:/etc/grafana/provisioning/datasources/influxdb-datasource.yaml
       - ./grafana/config/dashboard.json:/var/lib/grafana/dashboards/dashboard.json      
     links:
-      - influxdb
+      - influxdb1
+      - influxdb2
     depends_on:
-      - influxdb
+      - influxdb1
+      - influxdb2

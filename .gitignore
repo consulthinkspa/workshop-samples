@@ -5,4 +5,8 @@ build
 out/
 .run/
 /sdp/.env
-/integration-test/.env
+.env
+bin/
+*.project
+*.classpath
+.settings/

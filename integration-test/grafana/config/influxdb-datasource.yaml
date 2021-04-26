@@ -4,7 +4,7 @@ apiVersion: 1
 # what's available in the database
 datasources:
   # <string, required> name of the datasource. Required
-- name: influxdb
+- name: influxdb1
   # <string, required> datasource type. Required
   type: influxdb
   # <string, required> access mode. proxy or direct (Server or Browser in the UI). Required
@@ -12,14 +12,33 @@ datasources:
   # <int> org id. will default to orgId 1 if not specified
   orgId: 1
   # <string> url
-  url: http://influxdb:8086
+  url: http://influxdb1:8086
   # <string> database password, if used
-  password: root
+  password: admin
   # <string> database user, if used
-  user: root
+  user: password
   # <string> database name, if used
-  database: demo
+  database: nma
   # version
   version: 1
   # <bool> allow users to edit datasources from the UI.
   editable: false
+
+- name: influxdb2
+  # <string, required> datasource type. Required
+  type: influxdb
+  # <string, required> access mode. proxy or direct (Server or Browser in the UI). Required
+  access: proxy
+  # <int> org id. will default to orgId 1 if not specified
+  orgId: 1
+  # <string> url
+  url: http://influxdb2:8086
+  jsonData : '{"defaultBucket":"nma","httpHeaderName1":"Authentication","httpMode":"POST","organization":"it.consulthink","version":"Flux", "token": "D1ARPWX51_G5fP93DI9TYB13cvP_E0qN4yzFDktafhpzXul2-ItLLqKben2qyzMnjkibyAd-ag4A14Iifrq95A=="}'
+
+  # version
+  version: 1
+  # <bool> allow users to edit datasources from the UI.
+  editable: true
+
+
+#{"id":3,"uid":"aLxV2v9Gz","orgId":1,"name":"InfluxDB2","type":"influxdb","typeName":"InfluxDB","typeLogoUrl":"public/app/plugins/datasource/influxdb/img/influxdb_logo.svg","access":"proxy","url":"http://influxdb2:8086","password":"","user":"","database":"","basicAuth":false,"isDefault":false,"jsonData":{"defaultBucket":"nma","httpHeaderName1":"Authentication","httpMode":"POST","organization":"it.consulthink","version":"Flux"},"readOnly":false}

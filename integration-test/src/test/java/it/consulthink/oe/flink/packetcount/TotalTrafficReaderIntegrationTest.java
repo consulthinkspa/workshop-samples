@@ -21,6 +21,8 @@ import it.consulthink.oe.ingest.NMAJSONInfiniteWriter;
 import junit.framework.Assert;
 
 public class TotalTrafficReaderIntegrationTest {
+	public static final String DOCKER_COMPOSE_YML = "docker-compose-pravega.yml";
+
 	private static final Logger LOG = LoggerFactory.getLogger(TotalTrafficReaderIntegrationTest.class);
 
 	@ClassRule
@@ -79,7 +81,7 @@ public class TotalTrafficReaderIntegrationTest {
 
 	@BeforeClass
 	public static void upDockerCompose() throws IOException, InterruptedException {
-		dockerCompose("docker-compose up -d --remove-orphans ");
+		dockerCompose("docker-compose up -f "+ DOCKER_COMPOSE_YML + " -d --remove-orphans ");
 	}
 	
 //	@AfterClass
@@ -88,7 +90,7 @@ public class TotalTrafficReaderIntegrationTest {
 //	}
 
 	private static void dockerCompose(String execCompose) throws IOException, InterruptedException {
-		Path path = FileSystems.getDefault().getPath("docker-compose.yml").toAbsolutePath();
+		Path path = FileSystems.getDefault().getPath(DOCKER_COMPOSE_YML).toAbsolutePath();
 		File composeConfig = path.toFile();
 		Assert.assertTrue(composeConfig.exists() && composeConfig.isFile());
 

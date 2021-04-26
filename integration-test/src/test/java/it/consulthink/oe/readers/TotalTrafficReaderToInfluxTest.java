@@ -8,6 +8,8 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
@@ -15,27 +17,37 @@ import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
+import org.apache.flink.streaming.api.functions.source.FromIteratorFunction;
 import org.apache.flink.test.util.MiniClusterWithClientResource;
 import org.influxdb.InfluxDB;
-import org.influxdb.InfluxDBFactory;
-import org.influxdb.dto.Query;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.collect.Lists;
+import com.influxdb.client.InfluxDBClient;
+
 import junit.framework.Assert;
 
 public class TotalTrafficReaderToInfluxTest {
 	private static final Logger LOG = LoggerFactory.getLogger(TotalTrafficReaderToInfluxTest.class);
+	public static final String DOCKER_COMPOSE_YML = "docker-compose-influx.yml";
 	
-	static String influxdbUrl = "http://host.docker.internal:8086";
+	static String influxdb1Url = "http://host.docker.internal:8086";
 	static String influxdbUsername = "admin";
 	static String influxdbPassword = "password";
-	static String influxdbDbName = "demo";
+	static String influxdbDbName = "nma";
 	
-	static InfluxDB influxDB;
+	static InfluxDB influxDB1;
+	
+	static String influxdb2Url = "http://host.docker.internal:8186";
+	static String org = "it.consulthink";
+	static String token = "D1ARPWX51_G5fP93DI9TYB13cvP_E0qN4yzFDktafhpzXul2-ItLLqKben2qyzMnjkibyAd-ag4A14Iifrq95A==";
+	static String bucket = "nma";
+	
+	static InfluxDBClient influxDB2;
 	
 	
 	private static String OS = null;
@@ -43,9 +55,8 @@ public class TotalTrafficReaderToInfluxTest {
 	public static MiniClusterWithClientResource flinkCluster = new MiniClusterWithClientResource(
 			new MiniClusterResourceConfiguration.Builder().setNumberSlotsPerTaskManager(6).setNumberTaskManagers(2)
 					.build());
-
 	@Test
-	public void testGetSink() throws Exception {
+	public void testGetSink1() throws Exception {
 
 		StreamExecutionEnvironment senv = StreamExecutionEnvironment.getExecutionEnvironment();
 		senv.setParallelism(3);
@@ -56,10 +67,96 @@ public class TotalTrafficReaderToInfluxTest {
 
 
 
-		RichSinkFunction<Tuple2<Date, Long>> sink = TotalTrafficReaderToInflux.getSink("TotalTrafficReaderToInfluxTest",
-				influxdbUrl, influxdbUsername, influxdbPassword, influxdbDbName);
+		String inputStreamName = "testGetSink1";
+		RichSinkFunction<Tuple2<Date, Long>> sink = TotalTrafficReaderToInflux.getSink1(inputStreamName, influxdb1Url,
+				influxdbUsername, influxdbPassword, influxdbDbName);
 
 		DataStreamSink<Tuple2<Date, Long>> addSink = senv.fromCollection(iterable).keyBy(0).addSink(sink);
+
+		senv.execute();
+	}
+	
+	@Test
+	public void testGetSink2() throws Exception {
+
+		StreamExecutionEnvironment senv = StreamExecutionEnvironment.getExecutionEnvironment();
+		senv.setParallelism(3);
+		senv.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+
+		List<Tuple2<Date, Long>> iterable = Arrays.asList(Tuple2.of(new Date(), 1l), Tuple2.of(new Date(), 2l),
+				Tuple2.of(new Date(), 3l), Tuple2.of(new Date(), 4l));
+
+
+
+		String inputStreamName = "testGetSink2";
+		RichSinkFunction<Tuple2<Date, Long>> sink = TotalTrafficReaderToInflux.getSink2(inputStreamName, influxdb2Url,
+				org, token, bucket);
+
+		DataStreamSink<Tuple2<Date, Long>> addSink = senv.fromCollection(iterable).keyBy(0).addSink(sink);
+
+		senv.execute();
+	}
+	
+	@Test
+	public void testGetSink1Infinite() throws Exception {
+
+		StreamExecutionEnvironment senv = StreamExecutionEnvironment.getExecutionEnvironment();
+		senv.setParallelism(3);
+		senv.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+		
+		java.util.Random r = new java.util.Random(System.currentTimeMillis());
+		
+		List<Tuple2<Date, Long>> iterable = Lists.newArrayList(Stream.generate(new Supplier<Tuple2<Date, Long>>() {
+
+			@Override
+			public Tuple2<Date, Long> get() {
+				return Tuple2.of(new Date(), (long) r.nextInt(1024));
+			}
+		
+			
+		})
+		.limit(50000)
+		.iterator());
+
+
+		String inputStreamName = "testGetSink1Infinite";
+		RichSinkFunction<Tuple2<Date, Long>> sink = TotalTrafficReaderToInflux.getSink1(inputStreamName, influxdb1Url,
+				influxdbUsername, influxdbPassword, influxdbDbName);
+
+//		FromIteratorFunction<Tuple2<Date, Long>> source = new FromIteratorFunction<Tuple2<Date, Long>>(iterator);
+		DataStreamSink<Tuple2<Date, Long>> sinked = senv.fromCollection(iterable).keyBy(0).addSink(sink);
+
+		senv.execute();
+	}
+	
+	@Test
+	public void testGetSink2Infinite() throws Exception {
+
+		StreamExecutionEnvironment senv = StreamExecutionEnvironment.getExecutionEnvironment();
+		senv.setParallelism(3);
+		senv.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+		
+		java.util.Random r = new java.util.Random(System.currentTimeMillis());
+		
+		List<Tuple2<Date, Long>> iterable = Lists.newArrayList(Stream.generate(new Supplier<Tuple2<Date, Long>>() {
+
+			@Override
+			public Tuple2<Date, Long> get() {
+				return Tuple2.of(new Date(), (long) r.nextInt(1024));
+			}
+		
+			
+		})
+		.limit(50000)
+		.iterator());
+
+
+		String inputStreamName = "testGetSink2Infinite";
+		RichSinkFunction<Tuple2<Date, Long>> sink = TotalTrafficReaderToInflux.getSink2(inputStreamName, influxdb2Url,
+				org, token, bucket);
+
+//		FromIteratorFunction<Tuple2<Date, Long>> source = new FromIteratorFunction<Tuple2<Date, Long>>(iterator);
+		DataStreamSink<Tuple2<Date, Long>> sinked = senv.fromCollection(iterable).keyBy(0).addSink(sink);
 
 		senv.execute();
 	}
@@ -77,20 +174,9 @@ public class TotalTrafficReaderToInfluxTest {
 
 	@BeforeClass
 	public static void setUp() throws IOException, InterruptedException {
-		dockerCompose("docker-compose --file docker-compose-influx.yml up -d ");
+		dockerCompose("docker-compose --file "+DOCKER_COMPOSE_YML+" up -d ");
 		Thread.sleep(5 * 1000);
 
-		
-		if (influxdbUsername == null || influxdbUsername.isEmpty()) {
-			influxDB = InfluxDBFactory.connect(influxdbUrl);
-		} else {
-			influxDB = InfluxDBFactory.connect(influxdbUrl, influxdbUsername, influxdbPassword);
-		}
-		// influxDB = InfluxDBFactory.connect("http://
-		// String influxdbDbName = "demo";
-//		influxDB.query(new Query("CREATE DATABASE " + influxdbDbName));
-		influxDB.setDatabase(influxdbDbName);
-//		influxDB.query(new Query("DROP SERIES FROM /.*/"));
 	}
 
 //	@AfterClass
@@ -99,7 +185,7 @@ public class TotalTrafficReaderToInfluxTest {
 //	}
 
 	private static void dockerCompose(String execCompose) throws IOException, InterruptedException {
-		Path path = FileSystems.getDefault().getPath("docker-compose.yml").toAbsolutePath();
+		Path path = FileSystems.getDefault().getPath(DOCKER_COMPOSE_YML).toAbsolutePath();
 		File composeConfig = path.toFile();
 		Assert.assertTrue(composeConfig.exists() && composeConfig.isFile());
 

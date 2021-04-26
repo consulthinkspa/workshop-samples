@@ -61,8 +61,15 @@ public class NMAJSONDataGenerator {
 
 			@Override
 			public NMAJSONData get() {
+				try {
+					Thread.sleep(1 + r.nextInt(1000));
+				} catch (Throwable e) {
+					e.printStackTrace();
+				}
 				return r.nextInt(100) == 0 ? generateAnomaly(myIps) : generateStandard(myIps);
 			}
+			
+			
 		
 			
 		});
