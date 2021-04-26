@@ -2,9 +2,11 @@ package it.consulthink.oe.flink.packetcount;
 
 
 import it.consulthink.oe.model.NMAJSONData;
+import it.consulthink.oe.model.Traffic;
 import junit.framework.Assert;
 import org.apache.commons.lang3.time.DateUtils;
 import org.apache.flink.api.common.functions.FilterFunction;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
 import org.apache.flink.streaming.api.TimeCharacteristic;
@@ -42,6 +44,8 @@ public class TrafficByDirectionTest {
             new MiniClusterResourceConfiguration.Builder().setNumberSlotsPerTaskManager(6).setNumberTaskManagers(2)
                     .build());
 
+
+    //TODO write test unit for ProcessFunctionDate
 
     @Test
     public void testProcessFunction() throws Exception {
@@ -137,8 +141,6 @@ public class TrafficByDirectionTest {
                         "213.61.202.120,213.61.202.121,213.61.202.122," +
                         ",213.61.202.123,213.61.202.124,213.61.202.125,213.61.202.126").split(",")));
         
-        
-
 
         CollectSink.values.clear();
 
@@ -146,15 +148,15 @@ public class TrafficByDirectionTest {
         senv.setParallelism(3);
         senv.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 
-        ArrayList<NMAJSONData> iterable = readCSV("metrics_23-03-ordered_noq.csv");
+        ArrayList<NMAJSONData> iterable = TestUtilities.readCSV("metrics_23-03-ordered_noq.csv");
 
 
-        DataStream<NMAJSONData> source = senv.fromCollection(iterable).filter(getFilterFunction());
+        DataStream<NMAJSONData> source = senv.fromCollection(iterable).filter(TestUtilities.getFilterFunction());
 
         source.printToErr();
         LOG.info("==============  ProcessSource Source - PRINTED  ===============");
 
-        SingleOutputStreamOperator<TrafficByDirection.Traffic> datasource =
+        SingleOutputStreamOperator<Tuple2<Date,Traffic>> datasource =
                 TrafficByDirection.processSource(senv, source, ipList);
 
 		datasource.printToErr();
@@ -164,17 +166,17 @@ public class TrafficByDirectionTest {
         LOG.info("==============  ProcessSource Sink - PRINTED  ===============");
         senv.execute();
 
-        for (TrafficByDirection.Traffic l : CollectSink.values) {
-            LOG.info(l.toString());
+        for (Tuple2<Date, Traffic> l : CollectSink.values) {
+            LOG.info(l.f1.toString());
         }
 
         long inbound = 0l;
         long outbound = 0l;
         long lateral = 0l;
-        for (TrafficByDirection.Traffic l : CollectSink.values) {
-            inbound += l.inbound;
-            outbound += l.outbound;
-            lateral += l.lateral;
+        for (Tuple2<Date, Traffic> l : CollectSink.values) {
+            inbound += l.f1.getInbound();
+            outbound += l.f1.getOutbound();
+            lateral += l.f1.getLateral();
         }
 
         // verify your results
@@ -185,53 +187,13 @@ public class TrafficByDirectionTest {
 
     }
 
-
-
-    public static FilterFunction<NMAJSONData> getFilterFunction() {
-
-        FilterFunction<NMAJSONData> filter = new FilterFunction<NMAJSONData>() {
-
-            @Override
-            public boolean filter(NMAJSONData value) throws Exception {
-                Date min = DateUtils.parseDate("2021-03-21  23:00:00", "yyyy-MM-dd HH:mm:ss");
-                Date max = DateUtils.parseDate("2021-03-21  23:00:02", "yyyy-MM-dd HH:mm:ss");
-                return value.getTime().after(min) && value.getTime().before(max);
-            }
-
-        };
-        return filter;
-    }
-
-    public static ArrayList<NMAJSONData> readCSV(String csvFileName) throws FileNotFoundException, ParseException {
-        SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
-        Path path = FileSystems.getDefault().getPath("../common/src/main/resources/" + csvFileName).toAbsolutePath();
-        File csv = path.toFile();
-        Assert.assertTrue(csv.exists() && csv.isFile());
-
-        ArrayList<NMAJSONData> iterable = new ArrayList<NMAJSONData>();
-        Scanner myReader = new Scanner(csv);
-        String line = myReader.nextLine();
-        while (myReader.hasNextLine()) {
-            String[] splitted = myReader.nextLine().split(",");
-            NMAJSONData tmp = new NMAJSONData(df.parse(splitted[0]),
-                    splitted[1], splitted[2], splitted[3], splitted[4],
-                    Long.valueOf(splitted[5]), Long.valueOf(splitted[6]), Long.valueOf(splitted[7]),
-                    Long.valueOf(splitted[8]), Long.valueOf(splitted[9]), Long.valueOf(splitted[10]),
-                    Long.valueOf(splitted[11]), Long.valueOf(splitted[5]), Long.valueOf(splitted[5]),
-                    Long.valueOf(splitted[12]), Long.valueOf(splitted[13]));
-            iterable.add(tmp);
-        }
-        myReader.close();
-        return iterable;
-    }
-
-    private static class CollectSink implements SinkFunction<TrafficByDirection.Traffic> {
+    private static class CollectSink implements SinkFunction<Tuple2<Date, Traffic>> {
 
         // must be static
-        public static final List<TrafficByDirection.Traffic> values = Collections.synchronizedList(new ArrayList<TrafficByDirection.Traffic>());
+        public static final List<Tuple2<Date, Traffic>> values = Collections.synchronizedList(new ArrayList<Tuple2<Date, Traffic>>());
 
         @Override
-        public void invoke(TrafficByDirection.Traffic value) throws Exception {
+        public void invoke(Tuple2<Date, Traffic> value) throws Exception {
             values.add(value);
         }
     }

@@ -11,6 +11,7 @@ import io.pravega.connectors.flink.FlinkPravegaWriter;
 import io.pravega.connectors.flink.PravegaConfig;
 import io.pravega.connectors.flink.PravegaEventRouter;
 import it.consulthink.oe.model.NMAJSONData;
+import it.consulthink.oe.model.Traffic;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple2;
@@ -76,13 +77,13 @@ public class TrafficByDirection extends AbstractApp {
         DataStream<NMAJSONData> source = env.addSource(sourceFunction).name("InputSource");
         LOG.info("==============  Source  =============== " + source);
 
-        SingleOutputStreamOperator<Traffic> dataStream = processSource(env, source, ipList);
+        SingleOutputStreamOperator<Tuple2<Date,Traffic>> dataStream = processSource(env, source, ipList);
 
         dataStream.printToErr();
         LOG.info("==============  ProcessSource - PRINTED  ===============");
 
 
-        FlinkPravegaWriter<Traffic> sink = getSinkFunction(pravegaConfig, outputStreamName);
+        FlinkPravegaWriter<Tuple2<Date,Traffic>> sink = getSinkFunction(pravegaConfig, outputStreamName);
 
         dataStream.addSink(sink).name("NMATrafficByDirectionStream");
 
@@ -113,23 +114,28 @@ public class TrafficByDirection extends AbstractApp {
     }
 
 
-    private FlinkPravegaWriter<Traffic> getSinkFunction(PravegaConfig pravegaConfig, String outputStreamName) {
+    private FlinkPravegaWriter<Tuple2<Date,Traffic>> getSinkFunction(PravegaConfig pravegaConfig, String outputStreamName) {
 
-        //SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
+        SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
 
 
-        FlinkPravegaWriter<Traffic> sink = FlinkPravegaWriter.<Traffic>builder()
+        FlinkPravegaWriter<Tuple2<Date,Traffic>> sink = FlinkPravegaWriter.<Tuple2<Date,Traffic>>builder()
                 .withPravegaConfig(pravegaConfig)
                 .forStream(outputStreamName)
-                .withEventRouter((x) -> "TrafficByDirection")
-//                .withSerializationSchema(???)
+                .withEventRouter(new PravegaEventRouter<Tuple2<Date, Traffic>>() {
+                    @Override
+                    public String getRoutingKey(Tuple2<Date, Traffic> event) {
+                        return df.format(event.f0);
+                    }
+                })
+                .withSerializationSchema(new JsonSerializationSchema<Tuple2<Date, Traffic>>())
                 .build();
         return sink;
     }
 
 
 
-    public static SingleOutputStreamOperator<Traffic> processSource(StreamExecutionEnvironment env, DataStream<NMAJSONData> source, Set<String> ipList){
+    public static SingleOutputStreamOperator<Tuple2<Date, Traffic>> processSource(StreamExecutionEnvironment env, DataStream<NMAJSONData> source, Set<String> ipList){
 
         //setting EventTime Characteristic
         env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
@@ -138,19 +144,21 @@ public class TrafficByDirection extends AbstractApp {
 
         //TODO qui come gestire la doppia aggregazione?
         //TODO concatenare le due keyby oppure processare la prima finestra e poi procedere alla seconda?
-        SingleOutputStreamOperator<Traffic> dataStream = source
+        SingleOutputStreamOperator<Tuple2<Date, Traffic>> dataStream = source
                 .assignTimestampsAndWatermarks(timestampAndWatermarkAssigner)
                 .keyBy((NMAJSONData x) -> x.getTime())
-                .keyBy((line) -> {
-                    if (ipList.contains(line.getSrc_ip()) || ipList.contains(line.getDst_ip())) {
-                        return "notLateral";
-                    } else {
-                        return "Lateral";
-                    }
-                })
                 .window(TumblingEventTimeWindows.of(Time.seconds(1)))
-                .process(getProcessFunction())
-                .map((a) -> new Traffic(a.f0, a.f1, a.f2));
+                .process(getProcessFunctionDate(ipList))
+                .keyBy((Tuple2<Date,Traffic> x) -> x.f0)
+                .window(TumblingEventTimeWindows.of(Time.seconds(1)))
+                .reduce((Tuple2<Date,Traffic> v1, Tuple2<Date,Traffic> v2) -> {
+
+                    if(v1.f0.equals(v2.f0))
+                        return Tuple2.of(v1.f0, new Traffic(v1.f1,v2.f1));
+                    LOG.error(""+v1+" "+v2);
+                    throw new RuntimeException();
+                });
+
 
         return dataStream;
     }
@@ -165,6 +173,35 @@ public class TrafficByDirection extends AbstractApp {
         };
         return timestampAndWatermarkAssigner;
     }
+
+
+    public static ProcessWindowFunction<NMAJSONData, Tuple2<Date, Traffic>, Date, TimeWindow> getProcessFunctionDate(Set<String> ipList) {
+
+        ProcessWindowFunction<NMAJSONData, Tuple2<Date, Traffic>, Date, TimeWindow> trafficByDate = new ProcessWindowFunction<NMAJSONData, Tuple2<Date, Traffic>, Date, TimeWindow>() {
+
+            @Override
+            public void process(Date key, ProcessWindowFunction<NMAJSONData, Tuple2<Date, Traffic>, Date, TimeWindow>.Context ctx, Iterable<NMAJSONData> iterable, Collector<Tuple2<Date, Traffic>> collector) throws Exception {
+
+                Long inbound = 0l;
+                Long outbound = 0l;
+                Long lateral = 0l;
+
+                for (NMAJSONData element : iterable) {
+
+                    if (ipList.contains(element.getSrc_ip()) || ipList.contains(element.getDst_ip())) {
+                        inbound += element.getBytesin();
+                        outbound += element.getBytesout();
+                    } else {
+                        lateral += element.getBytesin() + element.getBytesout();
+                    }
+                }
+
+                collector.collect(Tuple2.of(key, new Traffic(inbound, outbound, lateral)));
+
+            }
+        };
+        return trafficByDate;
+    };
 
 
     public static ProcessWindowFunction<NMAJSONData, Tuple3<Long, Long, Long>, String, TimeWindow> getProcessFunction() {
@@ -195,31 +232,6 @@ public class TrafficByDirection extends AbstractApp {
         };
 
         return countByDirection;
-    }
-
-
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    static
-    class Traffic implements Serializable {
-
-        public Long inbound;
-        public Long outbound;
-        public Long lateral;
-
-        public Traffic(Long inbound, Long outbound, Long lateral) {
-            this.inbound = inbound;
-            this.outbound = outbound;
-            this.lateral = lateral;
-        }
-
-        @Override
-        public String toString() {
-            return "Traffic{" +
-                    "inbound=" + inbound +
-                    ", outbound=" + outbound +
-                    ", lateral=" + lateral +
-                    '}';
-        }
     }
 
 

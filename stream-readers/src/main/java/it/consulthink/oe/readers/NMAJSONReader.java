@@ -1,6 +1,7 @@
 
 package it.consulthink.oe.readers;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.slf4j.Logger;
@@ -14,6 +15,8 @@ import io.pravega.client.stream.Stream;
 import io.pravega.connectors.flink.FlinkPravegaReader;
 import io.pravega.connectors.flink.PravegaConfig;
 import it.consulthink.oe.model.NMAJSONData;
+
+import java.util.Date;
 
 /*
  *  This flink application demonstrates the JSON Data reading
@@ -39,13 +42,13 @@ public class NMAJSONReader extends AbstractApp {
 
             StreamExecutionEnvironment env = initializeFlinkStreaming();
             // create the Pravega source to read a stream of text
-            FlinkPravegaReader<NMAJSONData> flinkPravegaReader = FlinkPravegaReader.builder()
+            FlinkPravegaReader<Tuple2<Date,Long>> flinkPravegaReader = FlinkPravegaReader.builder()
                     .withPravegaConfig(pravegaConfig)
                     .forStream(stream)
-                    .withDeserializationSchema(new JsonDeserializationSchema(NMAJSONData.class))
+                    .withDeserializationSchema(new JsonDeserializationSchema(Tuple2.class))
                     .build();
 
-            DataStream<NMAJSONData> events = env
+            DataStream<Tuple2<Date,Long>> events = env
                     .addSource(flinkPravegaReader)
                     .name("events");
 

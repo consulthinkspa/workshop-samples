@@ -1,8 +1,14 @@
 package it.consulthink.oe.readers;
 
-import java.util.Date;
-import java.util.concurrent.TimeUnit;
-
+import com.dellemc.oe.serialization.JsonDeserializationSchema;
+import com.dellemc.oe.util.AbstractApp;
+import com.dellemc.oe.util.AppConfiguration;
+import com.influxdb.client.WriteApi;
+import com.influxdb.client.domain.WritePrecision;
+import io.pravega.connectors.flink.FlinkPravegaReader;
+import io.pravega.connectors.flink.PravegaConfig;
+import it.consulthink.oe.db.InfluxDB2Sink;
+import it.consulthink.oe.db.InfluxDBSink;
 import org.apache.flink.api.java.tuple.Tuple;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -13,16 +19,8 @@ import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.dellemc.oe.serialization.JsonDeserializationSchema;
-import com.dellemc.oe.util.AbstractApp;
-import com.dellemc.oe.util.AppConfiguration;
-import com.influxdb.client.WriteApi;
-import com.influxdb.client.domain.WritePrecision;
-
-import io.pravega.connectors.flink.FlinkPravegaReader;
-import io.pravega.connectors.flink.PravegaConfig;
-import it.consulthink.oe.db.InfluxDB2Sink;
-import it.consulthink.oe.db.InfluxDBSink;
+import java.util.Date;
+import java.util.concurrent.TimeUnit;
 
 /*
  * At a high level, TotalTrafficReader reads from a Pravega stream, and prints
@@ -36,25 +34,25 @@ import it.consulthink.oe.db.InfluxDBSink;
  *     controller - the Pravega controller URI, e.g., tcp://localhost:9090
  *                  Note that this parameter is automatically used by the PravegaConfig class
  */
-public class TotalTrafficReaderToInflux extends AbstractApp {
+public class SynInReaderToInflux extends AbstractApp {
 
 	// Logger initialization
-	private static final Logger LOG = LoggerFactory.getLogger(TotalTrafficReaderToInflux.class);
+	private static final Logger LOG = LoggerFactory.getLogger(SynInReaderToInflux.class);
 
 	// The application reads data from specified Pravega stream and once every 10
 	// seconds
 	// prints the distinct words and counts from the previous 10 seconds.
-	public TotalTrafficReaderToInflux(AppConfiguration appConfiguration) {
+	public SynInReaderToInflux(AppConfiguration appConfiguration) {
 		super(appConfiguration);
 	}
 
 	public void run() {
-		LOG.info("Starting NMA TotalTrafficReaderToInflux...");
+		LOG.info("Starting NMA SynInReaderToInflux...");
 
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
 		AppConfiguration.StreamConfig inputStreamConfig = appConfiguration.getInputStreamConfig();
-		;
+
 		String inputStreamName = inputStreamConfig.getStream().getStreamName();
 		createStream(inputStreamConfig);
 		LOG.info("============== input stream  =============== " + inputStreamName);
@@ -95,7 +93,7 @@ public class TotalTrafficReaderToInflux extends AbstractApp {
 			sink = getSink2(inputStreamName, influxdbUrl, org, token, bucket);
 		}
 
-		dataStream.addSink(sink).name("InfluxTotalTrafficStream");
+		dataStream.addSink(sink).name("InfluxSynInStream");
 
 		// create another output sink to print to stdout for verification
 
@@ -103,11 +101,11 @@ public class TotalTrafficReaderToInflux extends AbstractApp {
 
 		// execute within the Flink environment
 		try {
-			env.execute("TotalTrafficReader");
+			env.execute("SynInReader");
 		} catch (Exception e) {
-			LOG.error("Error executing TotalTrafficReader...");
+			LOG.error("Error executing SynInReader...");
 		} finally {
-			LOG.info("Ending NMA TotalTrafficReader...");
+			LOG.info("Ending NMA SynInReader...");
 		}
 
 	}
@@ -126,7 +124,7 @@ public class TotalTrafficReaderToInflux extends AbstractApp {
 									.addField("value", value.f1)
 									.build());
 				} catch (Exception e) {
-					LOG.error("Error on TotalTraffic " + value, e);
+					LOG.error("Error on SynIn " + value, e);
 				}
 
 			}
@@ -145,7 +143,7 @@ public class TotalTrafficReaderToInflux extends AbstractApp {
 
 		        	com.influxdb.client.write.Point point = com.influxdb.client.write.Point.measurement(inputStreamName)
 		                    .addField("value", value.f1)
-		                    .addTag("class", TotalTrafficReaderToInflux.class.getSimpleName())
+		                    .addTag("class", SynInReaderToInflux.class.getSimpleName())
 		                    .time(value.f0.getTime(), WritePrecision.MS);
 
 		            writeApi.writePoint(point);
@@ -168,9 +166,9 @@ public class TotalTrafficReaderToInflux extends AbstractApp {
 	}
 
 	public static void main(String[] args) throws Exception {
-		LOG.info("Starting TotalTrafficReaderToInflux...");
+		LOG.info("Starting SynInReaderToInflux...");
 		AppConfiguration appConfiguration = new AppConfiguration(args);
-		TotalTrafficReaderToInflux reader = new TotalTrafficReaderToInflux(appConfiguration);
+		SynInReaderToInflux reader = new SynInReaderToInflux(appConfiguration);
 		reader.run();
 	}
 

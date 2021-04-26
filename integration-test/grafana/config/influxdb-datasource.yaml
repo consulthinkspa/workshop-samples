@@ -33,7 +33,8 @@ datasources:
   orgId: 1
   # <string> url
   url: http://influxdb2:8086
-  jsonData : '{"defaultBucket":"nma","httpHeaderName1":"Authentication","httpMode":"POST","organization":"it.consulthink","version":"Flux", "token": "D1ARPWX51_G5fP93DI9TYB13cvP_E0qN4yzFDktafhpzXul2-ItLLqKben2qyzMnjkibyAd-ag4A14Iifrq95A=="}'
+  #jsonData : '{"defaultBucket":"nma","httpHeaderName1":"Authentication","httpMode":"POST","organization":"it.consulthink","version":"Flux", "token": "D1ARPWX51_G5fP93DI9TYB13cvP_E0qN4yzFDktafhpzXul2-ItLLqKben2qyzMnjkibyAd-ag4A14Iifrq95A=="}'
+
 
   # version
   version: 1
