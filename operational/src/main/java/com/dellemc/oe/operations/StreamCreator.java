@@ -19,7 +19,7 @@ import org.slf4j.LoggerFactory;
  */
 public class StreamCreator extends AbstractApp {
 
-    private static Logger LOG = LoggerFactory.getLogger(StreamCreator.class);
+    private static final Logger LOG = LoggerFactory.getLogger(StreamCreator.class);
     public StreamCreator(AppConfiguration appConfiguration) {
         super(appConfiguration);
     }

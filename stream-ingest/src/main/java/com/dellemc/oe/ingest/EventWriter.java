@@ -28,7 +28,7 @@ import org.slf4j.LoggerFactory;
  */
 public class EventWriter {
 
-    private static Logger LOG = LoggerFactory.getLogger(EventWriter.class);
+    private static final Logger LOG = LoggerFactory.getLogger(EventWriter.class);
 
     public EventWriter() {
 

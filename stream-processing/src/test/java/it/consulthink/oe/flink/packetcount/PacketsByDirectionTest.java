@@ -2,9 +2,11 @@ package it.consulthink.oe.flink.packetcount;
 
 
 import it.consulthink.oe.model.NMAJSONData;
+import it.consulthink.oe.model.Traffic;
 import junit.framework.Assert;
 import org.apache.commons.lang3.time.DateUtils;
 import org.apache.flink.api.common.functions.FilterFunction;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
 import org.apache.flink.streaming.api.TimeCharacteristic;
@@ -40,6 +42,8 @@ public class PacketsByDirectionTest {
             new MiniClusterResourceConfiguration.Builder().setNumberSlotsPerTaskManager(6).setNumberTaskManagers(2)
                     .build());
 
+
+    //TODO write test unit for ProcessFunctionDate
 
     @Test
     public void testProcessFunction() throws Exception {
@@ -127,7 +131,7 @@ public class PacketsByDirectionTest {
         source.printToErr();
         LOG.info("==============  ProcessSource Source - PRINTED  ===============");
 
-        SingleOutputStreamOperator<PacketsByDirection.Traffic> datasource =
+        SingleOutputStreamOperator<Tuple2<Date, Traffic>> datasource =
                 PacketsByDirection.processSource(senv, source, ipList);
 
 		datasource.printToErr();
@@ -137,17 +141,17 @@ public class PacketsByDirectionTest {
         LOG.info("==============  ProcessSource Sink - PRINTED  ===============");
         senv.execute();
 
-        for (PacketsByDirection.Traffic l : CollectSink.values) {
+        for (Tuple2<Date, Traffic> l : CollectSink.values) {
             LOG.info(l.toString());
         }
 
         long inbound = 0l;
         long outbound = 0l;
         long lateral = 0l;
-        for (PacketsByDirection.Traffic l : CollectSink.values) {
-            inbound += l.inbound;
-            outbound += l.outbound;
-            lateral += l.lateral;
+        for (Tuple2<Date, Traffic> l : CollectSink.values) {
+            inbound += l.f1.inbound;
+            outbound += l.f1.outbound;
+            lateral += l.f1.lateral;
         }
 
         // verify your results
@@ -160,13 +164,13 @@ public class PacketsByDirectionTest {
 
 
 
-    private static class CollectSink implements SinkFunction<PacketsByDirection.Traffic> {
+    private static class CollectSink implements SinkFunction<Tuple2<Date, Traffic>> {
 
         // must be static
-        public static final List<PacketsByDirection.Traffic> values = Collections.synchronizedList(new ArrayList<PacketsByDirection.Traffic>());
+        public static final List<Tuple2<Date, Traffic>> values = Collections.synchronizedList(new ArrayList<Tuple2<Date, Traffic>>());
 
         @Override
-        public void invoke(PacketsByDirection.Traffic value) throws Exception {
+        public void invoke(Tuple2<Date, Traffic> value) throws Exception {
             values.add(value);
         }
     }

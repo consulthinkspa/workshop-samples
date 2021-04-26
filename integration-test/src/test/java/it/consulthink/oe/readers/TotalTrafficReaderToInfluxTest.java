@@ -110,16 +110,21 @@ public class TotalTrafficReaderToInfluxTest {
 
 			@Override
 			public Tuple2<Date, Long> get() {
+
+				try {
+					Thread.sleep(500);
+				} catch (Throwable e) {}
+
 				return Tuple2.of(new Date(), (long) r.nextInt(1024));
 			}
 		
 			
 		})
-		.limit(50000)
+		.limit(120)
 		.iterator());
 
 
-		String inputStreamName = "testGetSink1Infinite";
+		String inputStreamName = "Total Traffic";
 		RichSinkFunction<Tuple2<Date, Long>> sink = TotalTrafficReaderToInflux.getSink1(inputStreamName, influxdb1Url,
 				influxdbUsername, influxdbPassword, influxdbDbName);
 

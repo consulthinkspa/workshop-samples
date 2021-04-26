@@ -21,7 +21,7 @@ import org.slf4j.LoggerFactory;
  */
 public class ScopeCreator extends AbstractApp {
 
-    private static Logger LOG = LoggerFactory.getLogger(ScopeCreator.class);
+    private static final Logger LOG = LoggerFactory.getLogger(ScopeCreator.class);
 
     public ScopeCreator(AppConfiguration appConfiguration) {
         super(appConfiguration);

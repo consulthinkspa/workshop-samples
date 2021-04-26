@@ -95,7 +95,7 @@ public class TotalTrafficReaderIntegrationTest {
 		Assert.assertTrue(composeConfig.exists() && composeConfig.isFile());
 
 		String[] args;
-		;
+
 		if (isWindows()) {
 			args = new String[] { "wsl", "--cd", path.getParent().toAbsolutePath().toString(), "sh", "-c",
 					execCompose };
