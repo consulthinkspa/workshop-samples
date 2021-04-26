@@ -3,11 +3,15 @@
  */
 package it.consulthink.oe.ingest;
 
-import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -20,6 +24,8 @@ import it.consulthink.oe.model.NMAJSONData;
 public class NMAJSONDataGenerator {
 	
 	private static final Random r = new Random(System.currentTimeMillis());
+	
+	public static final HashMap<String, Long> ips = new HashMap<String, Long>();
 	
 	private static String generateWellKnownPort() {
 		boolean isWebPort = r.nextInt(3) == 0;
@@ -52,7 +58,27 @@ public class NMAJSONDataGenerator {
 	}	
 	
 	private static String generateRandomIP() {
-		return r.nextInt(256) + "." + r.nextInt(256) + "." + r.nextInt(256) + "." + r.nextInt(256);
+		String result = null; 
+		if (ips.size() == 0 || r.nextInt(3) == 0) {
+			result = r.nextInt(256) + "." + r.nextInt(256) + "." + r.nextInt(256) + "." + r.nextInt(256);
+			if (ips.containsKey(result)) {
+				ips.put(result, ips.get(result) +1l);
+			}else {
+				ips.put(result, 1l);
+			}
+		}else {
+			Iterator<String> iterator = ips.keySet().iterator();
+			Long max = Collections.max(ips.values());
+			int v = r.nextInt(ips.size());
+			for (int i = 0; iterator.hasNext(); i++) {
+				result = iterator.next();
+				if (i >= v && ips.get(result) < max)
+					break;
+			}
+			ips.put(result, ips.get(result) +1l);
+		}
+		
+		return result;
 	}
 	
 	public static Stream<NMAJSONData> generateInfiniteStream(List<String> myIps){
@@ -61,11 +87,11 @@ public class NMAJSONDataGenerator {
 
 			@Override
 			public NMAJSONData get() {
-				try {
-					Thread.sleep(1 + r.nextInt(1000));
-				} catch (Throwable e) {
-					e.printStackTrace();
-				}
+//				try {
+//					Thread.sleep(1 + r.nextInt(1000));
+//				} catch (Throwable e) {
+//					e.printStackTrace();
+//				}
 				return r.nextInt(100) == 0 ? generateAnomaly(myIps) : generateStandard(myIps);
 			}
 			
@@ -74,6 +100,7 @@ public class NMAJSONDataGenerator {
 			
 		});
 	}
+	
 		
 	public static NMAJSONData generateAnomaly(List<String> myIps) {
 		
