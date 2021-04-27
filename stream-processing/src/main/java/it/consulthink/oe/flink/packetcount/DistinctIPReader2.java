@@ -181,6 +181,7 @@ public class DistinctIPReader2 extends AbstractApp {
 			result = connectedStream
 					.process(pf)
 					.keyBy(t -> t.f0)
+					.windowAll(TumblingEventTimeWindows.of(Time.seconds(1)))
 					.reduce(new ReduceFunction<Tuple3<String,Integer,Integer>>() {
 						
 						@Override

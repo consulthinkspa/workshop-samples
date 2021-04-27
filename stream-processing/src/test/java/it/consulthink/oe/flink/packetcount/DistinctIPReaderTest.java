@@ -2,6 +2,7 @@ package it.consulthink.oe.flink.packetcount;
 
 import static org.junit.Assert.*;
 
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 import org.apache.commons.lang3.time.DateUtils;
@@ -137,6 +138,63 @@ public class DistinctIPReaderTest {
 
 
 	}
+    @Test
+    public void testProcessSourceX() throws Exception {
+    	CollectSink.values.clear();
+    	
+		AppConfiguration ac = new AppConfiguration(new String[0]);
+		Set<String> myIps = ac.getMyIps();
+
+        StreamExecutionEnvironment senv = StreamExecutionEnvironment.getExecutionEnvironment();
+        senv.setParallelism(3);
+        senv.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+
+		Date example = DateUtils.parseDate("2021-03-21  22:59:58", "yyyy-MM-dd HH:mm:ss");
+		Date example1 = DateUtils.parseDate("2021-03-21  22:59:59", "yyyy-MM-dd HH:mm:ss");
+
+		List<NMAJSONData> iterable = Arrays.asList(
+					new NMAJSONData(example, "10.10.10.1", "10.10.10.2", "", "", 0l, 0l,0l,0l,0l,0l,0l,0l,0l,0l,0l),
+					new NMAJSONData(example, "10.10.10.1", "10.10.10.2", "", "", 0l, 0l,0l,0l,0l,0l,0l,0l,0l,0l,0l),
+					new NMAJSONData(example, "10.10.10.1", "10.10.10.2", "", "", 0l, 0l,0l,0l,0l,0l,0l,0l,0l,0l,0l),
+					new NMAJSONData(example, "10.10.10.2", "10.10.10.1", "", "", 0l, 0l,0l,0l,0l,0l,0l,0l,0l,0l,0l),
+					new NMAJSONData(example, "213.61.202.114", "10.10.10.3", "", "", 0l, 0l,0l,0l,0l,0l,0l,0l,0l,0l,0l),
+					new NMAJSONData(example1, "213.61.202.114", "10.10.10.3", "", "", 0l, 0l,0l,0l,0l,0l,0l,0l,0l,0l,0l)
+					
+				);
+		
+//		iterable = TestUtilities.readCSV("metrics_23-03-ordered.csv");
+
+        DataStream<NMAJSONData> source = senv.fromCollection(iterable);
+
+        source.printToErr();
+        LOG.info("==============  ProcessSource Source - PRINTED  ===============");
+
+        SingleOutputStreamOperator<Tuple3<Date, Long, Long>> datasource = DistinctIPReader.processSource(senv, source, myIps);
+
+
+//		datasource.printToErr();
+        LOG.info("==============  ProcessSource Processed - PRINTED  ===============");
+        CollectSink sink = new CollectSink();
+		datasource.addSink(sink);
+//		datasource.printToErr();
+        LOG.info("==============  ProcessSource Sink - PRINTED  ===============");
+        senv.execute();
+
+
+
+        // verify your results
+        Assert.assertEquals(2, sink.values.size());
+        final SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        
+        Assert.assertEquals(df.parse("2021-03-21 22:59:59"), CollectSink.values.get(0).f0);
+        Assert.assertEquals(Long.valueOf(1), CollectSink.values.get(0).f1);
+        Assert.assertEquals(Long.valueOf(1), CollectSink.values.get(0).f2);
+        
+        Assert.assertEquals(df.parse("2021-03-21 22:59:58"), CollectSink.values.get(1).f0);
+        Assert.assertEquals(Long.valueOf(1), CollectSink.values.get(1).f1);
+        Assert.assertEquals(Long.valueOf(3), CollectSink.values.get(1).f2);
+
+    }
 
 
 
@@ -147,6 +205,7 @@ public class DistinctIPReaderTest {
 
 		@Override
 		public void invoke(Tuple3<Date, Long, Long> value) throws Exception {
+			LOG.info("sink invoke: " +value);
 			values.add(value);
 		}
 

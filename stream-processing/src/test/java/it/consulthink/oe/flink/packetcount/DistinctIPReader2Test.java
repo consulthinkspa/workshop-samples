@@ -98,6 +98,8 @@ public class DistinctIPReader2Test {
 	
     @Test
     public void testProcessSource() throws Exception {
+    	CollectSink.values.clear();
+    	
 		AppConfiguration ac = new AppConfiguration(new String[0]);
 		Set<String> myIps = ac.getMyIps();
 
@@ -118,7 +120,7 @@ public class DistinctIPReader2Test {
 					
 				);
 		
-		iterable = TestUtilities.readCSV("metrics_23-03-ordered.csv");
+//		iterable = TestUtilities.readCSV("metrics_23-03-ordered.csv");
 
         DataStream<NMAJSONData> source = senv.fromCollection(iterable);
 
@@ -130,22 +132,24 @@ public class DistinctIPReader2Test {
 
 //		datasource.printToErr();
         LOG.info("==============  ProcessSource Processed - PRINTED  ===============");
-        datasource.addSink(new CollectSink());
+        CollectSink sink = new CollectSink();
+		datasource.addSink(sink);
 //		datasource.printToErr();
         LOG.info("==============  ProcessSource Sink - PRINTED  ===============");
         senv.execute();
 
-//        for (Tuple2<Date, Long> l : PacketCountReaderTest.CollectSink.values) {
-//            LOG.info(l.toString());
-//        }
-//
-//        long total = 0l;
-//        for (Tuple2<Date, Long> l : PacketCountReaderTest.CollectSink.values) {
-//            total+=l.f1;
-//        }
+
 
         // verify your results
-//        Assert.assertEquals(97l, total);
+        Assert.assertEquals(2, sink.values.size());
+        
+        Assert.assertEquals("2021-03-21 22:59:59", CollectSink.values.get(0).f0);
+        Assert.assertEquals(Integer.valueOf(1), CollectSink.values.get(0).f1);
+        Assert.assertEquals(Integer.valueOf(1), CollectSink.values.get(0).f2);
+        
+        Assert.assertEquals("2021-03-21 22:59:58", CollectSink.values.get(1).f0);
+        Assert.assertEquals(Integer.valueOf(1), CollectSink.values.get(1).f1);
+        Assert.assertEquals(Integer.valueOf(3), CollectSink.values.get(1).f2);
 
     }
 
