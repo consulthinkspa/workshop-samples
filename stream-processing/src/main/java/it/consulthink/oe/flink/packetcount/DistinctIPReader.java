@@ -137,63 +137,57 @@ public class DistinctIPReader extends AbstractApp {
 		
 		
 		SingleOutputStreamOperator<Tuple3<Date, Long, Long>> dataStream = source
-                .keyBy((line) -> {
-                    if (ipList.contains(line.getSrc_ip()) || ipList.contains(line.getDst_ip())) {
-                        return "notLateral";
-                    } else {
-                        return "Lateral";
+               .assignTimestampsAndWatermarks(timestampAndWatermarkAssigner)
+               .keyBy((NMAJSONData x) -> x.getTime())
+               .window(TumblingEventTimeWindows.of(Time.seconds(1)))
+               .process(getProcessFunction(ipList))
+               .windowAll(TumblingEventTimeWindows.of(Time.seconds(1)))
+               .reduce((Tuple3<Date, Hashtable<String,Long>, Hashtable<String,Long>> v1, Tuple3<Date, Hashtable<String,Long>, Hashtable<String,Long>> v2) -> {				// reduce by merging events with same timestamp
+
+                   Hashtable<String,Long> ipsLocal = new Hashtable<String,Long>();
+                   ipsLocal.putAll(v2.f1);
+                   Hashtable<String,Long> ipsExternal = new Hashtable<String,Long>();
+                   ipsExternal.putAll(v2.f2);
+
+
+
+                   Enumeration<String> keysV1F1 = v1.f1.keys();
+                   while (keysV1F1.hasMoreElements()) {
+                       String ip = (String) keysV1F1.nextElement();
+                       if (ipsLocal.contains(ip)) {
+                           ipsLocal.put(ip, ipsLocal.get(ip) + v1.f1.get(ip));
+                       }else {
+                           ipsLocal.put(ip, v1.f1.get(ip));
+                       }
+                   }
+
+                   Enumeration<String> keysV1F2 = v1.f2.keys();
+                   while (keysV1F1.hasMoreElements()) {
+                       String ip = (String) keysV1F1.nextElement();
+                       if (ipsExternal.contains(ip)) {
+                           ipsExternal.put(ip, ipsLocal.get(ip) + v1.f1.get(ip));
+                       }else {
+                           ipsExternal.put(ip, v1.f1.get(ip));
+                       }
+                   }
+
+                   return Tuple3.of(v1.f0, ipsLocal, ipsExternal);
+               }).map(new MapFunction<Tuple3<Date,Hashtable<String,Long>,Hashtable<String,Long>>, Tuple3<Date, Long, Long>>() {
+
+                    @Override
+                    public Tuple3<Date, Long, Long> map(Tuple3<Date, Hashtable<String, Long>, Hashtable<String, Long>> t) throws Exception {
+
+                        return Tuple3.of(t.f0, (long) t.f1.size(), (long) t.f2.size());
                     }
-                })                                 
-				.window(SlidingEventTimeWindows.of(Time.seconds(2),Time.seconds(1)))                   
-				.process(getProcessFunction(ipList))   
-				.windowAll(TumblingEventTimeWindows.of(Time.seconds(2)))
-                
-				.reduce((Tuple3<Date, Hashtable<String,Long>, Hashtable<String,Long>> v1, Tuple3<Date, Hashtable<String,Long>, Hashtable<String,Long>> v2) -> {				// reduce by merging events with same timestamp
-					
-					Hashtable<String,Long> ipsLocal = new Hashtable<String,Long>();
-					ipsLocal.putAll(v2.f1);
-					Hashtable<String,Long> ipsExternal = new Hashtable<String,Long>();
-					ipsExternal.putAll(v2.f2);
-		        	
-		        	
-		        	
-					Enumeration<String> keysV1F1 = v1.f1.keys();
-					while (keysV1F1.hasMoreElements()) {
-						String ip = (String) keysV1F1.nextElement();
-						if (ipsLocal.contains(ip)) {
-							ipsLocal.put(ip, ipsLocal.get(ip) + v1.f1.get(ip));
-						}else {
-							ipsLocal.put(ip, v1.f1.get(ip));	
-						}
-					}
-					
-					Enumeration<String> keysV1F2 = v1.f2.keys();
-					while (keysV1F1.hasMoreElements()) {
-						String ip = (String) keysV1F1.nextElement();
-						if (ipsExternal.contains(ip)) {
-							ipsExternal.put(ip, ipsLocal.get(ip) + v1.f1.get(ip));
-						}else {
-							ipsExternal.put(ip, v1.f1.get(ip));	
-						}
-					}					
-					
-					return Tuple3.of(new Date(), ipsLocal, ipsExternal);
-				}).map(new MapFunction<Tuple3<Date,Hashtable<String,Long>,Hashtable<String,Long>>, Tuple3<Date, Long, Long>>() {
 
-					@Override
-					public Tuple3<Date, Long, Long> map(Tuple3<Date, Hashtable<String, Long>, Hashtable<String, Long>> t) throws Exception {
+                });
 
-							return Tuple3.of(t.f0, (long) t.f1.size(), (long) t.f2.size());
-					}
-
-				});
-
-		return dataStream;
+        return dataStream;
     }
 
 
     public static BoundedOutOfOrdernessTimestampExtractor<NMAJSONData> getTimestampAndWatermarkAssigner() {
-        BoundedOutOfOrdernessTimestampExtractor<NMAJSONData> timestampAndWatermarkAssigner = new BoundedOutOfOrdernessTimestampExtractor<NMAJSONData>(Time.seconds(10)) {
+        BoundedOutOfOrdernessTimestampExtractor<NMAJSONData> timestampAndWatermarkAssigner = new BoundedOutOfOrdernessTimestampExtractor<NMAJSONData>(Time.seconds(3)) {
             @Override
             public long extractTimestamp(NMAJSONData element) {
                 return element.getTime().getTime();
@@ -203,23 +197,23 @@ public class DistinctIPReader extends AbstractApp {
     }
 
 
-    public static ProcessWindowFunction<NMAJSONData, Tuple3<Date, Hashtable<String,Long>, Hashtable<String,Long>>, String, TimeWindow> getProcessFunction(final Set<String> myIpList) {
+    public static ProcessWindowFunction<NMAJSONData, Tuple3<Date, Hashtable<String,Long>, Hashtable<String,Long>>, Date, TimeWindow> getProcessFunction(final Set<String> myIpList) {
     	
-        ProcessWindowFunction<NMAJSONData, Tuple3<Date, Hashtable<String,Long>, Hashtable<String,Long>>, String, TimeWindow> countByDirection = new
-                ProcessWindowFunction<NMAJSONData, Tuple3<Date, Hashtable<String,Long>, Hashtable<String,Long>>, String, TimeWindow>() {
+        ProcessWindowFunction<NMAJSONData, Tuple3<Date, Hashtable<String,Long>, Hashtable<String,Long>>, Date, TimeWindow> countByDirection = new
+                ProcessWindowFunction<NMAJSONData, Tuple3<Date, Hashtable<String,Long>, Hashtable<String,Long>>, Date, TimeWindow>() {
         	
         	Hashtable<String,Long> ipsLocal = new Hashtable<String,Long>();
         	Hashtable<String,Long> ipsExternal = new Hashtable<String,Long>();
         	
         	
             @Override
-            public void process(String key, Context context, Iterable<NMAJSONData> elements, Collector<Tuple3<Date, Hashtable<String,Long>, Hashtable<String,Long>>> out) throws Exception {
+            public void process(Date key, Context context, Iterable<NMAJSONData> elements, Collector<Tuple3<Date, Hashtable<String,Long>, Hashtable<String,Long>>> out) throws Exception {
                 for (NMAJSONData data : elements) {
                     insertIP(data.getSrc_ip());
                     insertIP(data.getDst_ip());
                 }
                 
-                out.collect(Tuple3.of(new Date(), ipsLocal, ipsExternal));
+                out.collect(Tuple3.of(key, ipsLocal, ipsExternal));
             }
             
             public Long insertIP(String ip) {
