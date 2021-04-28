@@ -150,7 +150,7 @@ public class SynInReaderToInfluxTest {
 		
 			
 		})
-		.limit(50000)
+		.limit(120)
 		.iterator());
 
 

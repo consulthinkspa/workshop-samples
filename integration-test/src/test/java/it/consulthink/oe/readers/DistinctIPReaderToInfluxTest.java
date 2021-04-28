@@ -11,7 +11,8 @@ import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
-import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.tuple.Tuple3;
+import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
@@ -31,8 +32,8 @@ import com.influxdb.client.InfluxDBClient;
 
 import junit.framework.Assert;
 
-public class TotalTrafficReaderToInfluxTest {
-	private static final Logger LOG = LoggerFactory.getLogger(TotalTrafficReaderToInfluxTest.class);
+public class DistinctIPReaderToInfluxTest {
+	private static final Logger LOG = LoggerFactory.getLogger(DistinctIPReaderToInfluxTest.class);
 	public static final String DOCKER_COMPOSE_YML = "docker-compose-influx.yml";
 	
 	static String influxdb1Url = "http://host.docker.internal:8086";
@@ -62,16 +63,16 @@ public class TotalTrafficReaderToInfluxTest {
 		senv.setParallelism(3);
 		senv.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 
-		List<Tuple2<Date, Long>> iterable = Arrays.asList(Tuple2.of(new Date(), 1l), Tuple2.of(new Date(), 2l),
-				Tuple2.of(new Date(), 3l), Tuple2.of(new Date(), 4l));
+		List<Tuple3<Date, Integer, Integer>> iterable = Arrays.asList(Tuple3.of(new Date(), 1,1), Tuple3.of(new Date(), 2,2),
+				Tuple3.of(new Date(), 3,3), Tuple3.of(new Date(), 4,4));
 
 
 
 		String inputStreamName = "testGetSink1";
-		RichSinkFunction<Tuple2<Date, Long>> sink = TotalTrafficReaderToInflux.getSink1(inputStreamName, influxdb1Url,
+		RichSinkFunction<Tuple3<Date, Integer, Integer>> sink = DistinctIPReaderToInflux.getSink1(inputStreamName, influxdb1Url,
 				influxdbUsername, influxdbPassword, influxdbDbName);
 
-		DataStreamSink<Tuple2<Date, Long>> addSink = senv.fromCollection(iterable).keyBy(0).addSink(sink);
+		DataStreamSink<Tuple3<Date, Integer, Integer>> addSink = senv.fromCollection(iterable).keyBy(0).addSink(sink);
 
 		senv.execute();
 	}
@@ -83,16 +84,16 @@ public class TotalTrafficReaderToInfluxTest {
 		senv.setParallelism(3);
 		senv.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 
-		List<Tuple2<Date, Long>> iterable = Arrays.asList(Tuple2.of(new Date(), 1l), Tuple2.of(new Date(), 2l),
-				Tuple2.of(new Date(), 3l), Tuple2.of(new Date(), 4l));
+		List<Tuple3<Date, Integer, Integer>> iterable = Arrays.asList(Tuple3.of(new Date(), 1,1), Tuple3.of(new Date(), 2,2),
+				Tuple3.of(new Date(), 3,3), Tuple3.of(new Date(), 4,4));
 
 
 
 		String inputStreamName = "testGetSink2";
-		RichSinkFunction<Tuple2<Date, Long>> sink = TotalTrafficReaderToInflux.getSink2(inputStreamName, influxdb2Url,
+		RichSinkFunction<Tuple3<Date, Integer, Integer>> sink = DistinctIPReaderToInflux.getSink2(inputStreamName, influxdb2Url,
 				org, token, bucket);
 
-		DataStreamSink<Tuple2<Date, Long>> addSink = senv.fromCollection(iterable).keyBy(0).addSink(sink);
+		DataStreamSink<Tuple3<Date, Integer, Integer>> addSink = senv.fromCollection(iterable).keyBy(0).addSink(sink);
 
 		senv.execute();
 	}
@@ -106,16 +107,16 @@ public class TotalTrafficReaderToInfluxTest {
 		
 		java.util.Random r = new java.util.Random(System.currentTimeMillis());
 		
-		List<Tuple2<Date, Long>> iterable = Lists.newArrayList(Stream.generate(new Supplier<Tuple2<Date, Long>>() {
+		List<Tuple3<Date, Integer, Integer>> iterable = Lists.newArrayList(Stream.generate(new Supplier<Tuple3<Date, Integer, Integer>>() {
 
 			@Override
-			public Tuple2<Date, Long> get() {
+			public Tuple3<Date, Integer, Integer> get() {
 
 				try {
 					Thread.sleep(500);
 				} catch (Throwable e) {}
 
-				return Tuple2.of(new Date(), (long) r.nextInt(1024));
+				return Tuple3.of(new Date(), r.nextInt(1024),r.nextInt(1024));
 			}
 		
 			
@@ -125,11 +126,11 @@ public class TotalTrafficReaderToInfluxTest {
 
 
 		String inputStreamName = "Total Traffic";
-		RichSinkFunction<Tuple2<Date, Long>> sink = TotalTrafficReaderToInflux.getSink1(inputStreamName, influxdb1Url,
+		RichSinkFunction<Tuple3<Date, Integer, Integer>> sink = DistinctIPReaderToInflux.getSink1(inputStreamName, influxdb1Url,
 				influxdbUsername, influxdbPassword, influxdbDbName);
 
-//		FromIteratorFunction<Tuple2<Date, Long>> source = new FromIteratorFunction<Tuple2<Date, Long>>(iterator);
-		DataStreamSink<Tuple2<Date, Long>> sinked = senv.fromCollection(iterable).keyBy(0).addSink(sink);
+//		FromIteratorFunction<Tuple3<Date, Integer, Integer>> source = new FromIteratorFunction<Tuple3<Date, Integer, Integer>>(iterator);
+		DataStreamSink<Tuple3<Date, Integer, Integer>> sinked = senv.fromCollection(iterable).keyBy(0).addSink(sink);
 
 		senv.execute();
 	}
@@ -143,11 +144,11 @@ public class TotalTrafficReaderToInfluxTest {
 		
 		java.util.Random r = new java.util.Random(System.currentTimeMillis());
 		
-		List<Tuple2<Date, Long>> iterable = Lists.newArrayList(Stream.generate(new Supplier<Tuple2<Date, Long>>() {
+		List<Tuple3<Date, Integer, Integer>> iterable = Lists.newArrayList(Stream.generate(new Supplier<Tuple3<Date, Integer, Integer>>() {
 
 			@Override
-			public Tuple2<Date, Long> get() {
-				return Tuple2.of(new Date(), (long) r.nextInt(1024));
+			public Tuple3<Date, Integer, Integer> get() {
+				return Tuple3.of(new Date(), r.nextInt(1024),r.nextInt(1024));
 			}
 		
 			
@@ -157,11 +158,11 @@ public class TotalTrafficReaderToInfluxTest {
 
 
 		String inputStreamName = "testGetSink2Infinite";
-		RichSinkFunction<Tuple2<Date, Long>> sink = TotalTrafficReaderToInflux.getSink2(inputStreamName, influxdb2Url,
+		RichSinkFunction<Tuple3<Date, Integer, Integer>> sink = DistinctIPReaderToInflux.getSink2(inputStreamName, influxdb2Url,
 				org, token, bucket);
 
-//		FromIteratorFunction<Tuple2<Date, Long>> source = new FromIteratorFunction<Tuple2<Date, Long>>(iterator);
-		DataStreamSink<Tuple2<Date, Long>> sinked = senv.fromCollection(iterable).keyBy(0).addSink(sink);
+//		FromIteratorFunction<Tuple3<Date, Integer, Integer>> source = new FromIteratorFunction<Tuple3<Date, Integer, Integer>>(iterator);
+		DataStreamSink<Tuple3<Date, Integer, Integer>> sinked = senv.fromCollection(iterable).keyBy(0).addSink(sink);
 
 		senv.execute();
 	}
