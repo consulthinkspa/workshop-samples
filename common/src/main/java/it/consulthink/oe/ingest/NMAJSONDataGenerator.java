@@ -23,13 +23,32 @@ import it.consulthink.oe.model.NMAJSONData;
  */
 public class NMAJSONDataGenerator {
 	
-	private static final Random r = new Random(System.currentTimeMillis());
+	
+
+
+	public static final int MEAN_BYTESIN = 270;
+	public static final int MEAN_BYTESOUT = 398;
+	public static final int MEAN_PACKETS_IN = 2;
+	public static final int MEAN_PACKETS_OUT = 2;
+	
+	public static final int MAX_BYTESIN = 84596;
+	public static final int MAX_BYTESOUT = 294358;
+	public static final int MAX_BYTES = MAX_BYTESIN + MAX_BYTESOUT;
+	public static final int MAX_PACKETS_IN= 216;
+	public static final int MAX_PACKETS_OUT= 216;
+	public static final int MAX_PACKETS= MAX_PACKETS_IN + MAX_PACKETS_OUT;
+	public static final int MAX_SYNIN= 3;
+	public static final int MAX_SYNACKOUT= 216;
+	public static final int MAX_RSTIN= 6;
+	public static final int MAX_RSTOUT= 4;
+
+	public static final Random r = new Random(System.currentTimeMillis());
 	
 	public static final HashMap<String, Long> ips = new HashMap<String, Long>();
 	public static final HashMap<String, Long> ipsLocal = new HashMap<String, Long>();
 	
 	private static String generateWellKnownPort() {
-		boolean isWebPort = r.nextInt(3) == 0;
+		boolean isWebPort = r.nextInt(2) == 0;
 		String[] webPort = {"443","80"};
 		if (isWebPort) {
 			return webPort[r.nextInt(2)];
@@ -43,19 +62,51 @@ public class NMAJSONDataGenerator {
 	}
 	
 	private static long generateBytesIn() {
-		return r.nextInt(84596);
+		long result = MEAN_BYTESIN;
+		if (r.nextBoolean()) {
+			int maxRandomInt = Math.floorDiv(MAX_BYTESIN - (int)MEAN_BYTESIN, 2);
+			result = result + (long) r.nextInt(maxRandomInt);
+		}else {
+			int maxRandomInt = Math.floorDiv((int)MEAN_BYTESIN, 2);
+			result = result - (long) r.nextInt(maxRandomInt);
+		}
+		return Math.max(Math.min(result, MAX_BYTESIN),0);
 	}
 	
 	private static long generateBytesOut() {
-		return r.nextInt(84596);
+		long result = MEAN_BYTESOUT;
+		if (r.nextBoolean()) {
+			int maxRandomInt = Math.floorDiv(MAX_BYTESOUT - (int)MEAN_BYTESOUT, 2);
+			result = result + (long) r.nextInt(maxRandomInt);
+		}else {
+			int maxRandomInt = Math.floorDiv((int)MEAN_BYTESOUT, 2);
+			result = result - (long) r.nextInt(maxRandomInt);
+		}
+		return Math.max(Math.min(result, MAX_BYTESOUT),0);
 	}
 	
 	private static long generatePacketsIn() {
-		return r.nextInt(216);
+		long result = MEAN_PACKETS_IN;
+		if (r.nextBoolean()) {
+			int maxRandomInt = Math.floorDiv(MAX_PACKETS_IN - (int)MEAN_PACKETS_IN, 2);
+			result = result + (long) r.nextInt(maxRandomInt);
+		}else {
+			int maxRandomInt = Math.floorDiv((int)MEAN_PACKETS_IN, 2);
+			result = result - (long) r.nextInt(maxRandomInt);
+		}
+		return Math.max(Math.min(result, MAX_PACKETS_IN),0);		
 	}	
 	
 	private static long generatePacketsOut() {
-		return r.nextInt(216);
+		long result = MEAN_PACKETS_OUT;
+		if (r.nextBoolean()) {
+			int maxRandomInt = Math.floorDiv(MAX_PACKETS_OUT - (int)MEAN_PACKETS_OUT, 2);
+			result = result + (long) r.nextInt(maxRandomInt);
+		}else {
+			int maxRandomInt = Math.floorDiv((int)MEAN_PACKETS_OUT, 2);
+			result = result - (long) r.nextInt(maxRandomInt);
+		}
+		return Math.max(Math.min(result, MAX_PACKETS_OUT),0);	
 	}	
 	
 	private static String generateRandomLocalIP() {
@@ -199,10 +250,10 @@ public class NMAJSONDataGenerator {
 		
 		long pkts = pktsin + pktsout;
 		
-		long synin = r.nextInt(1 + (int)pktsin);
-		long synackout = r.nextInt(1 + (int)pktsout);
-		long rstin = pktsin - synin;
-		long rstout = pktsout - synackout;
+		long synin = Math.min(r.nextInt(1 + (int)pktsin), MAX_SYNIN);
+		long synackout = Math.min(r.nextInt(1 + (int)pktsout), MAX_SYNACKOUT);
+		long rstin = Math.min(pktsin - synin, MAX_RSTIN);
+		long rstout = Math.min(pktsout - synackout, MAX_RSTOUT);
 		
 //		TODO
 		long fin = r.nextInt(1000) == 0 ? 1l : 0l;
@@ -225,6 +276,40 @@ public class NMAJSONDataGenerator {
 		return result;
 	}
 	
+//	public static class NMAJSONDataAnomaly extends NMAJSONData{
+//		/**
+//		 * 
+//		 */
+//		private static final long serialVersionUID = 1L;
+//
+//		public NMAJSONDataAnomaly(NMAJSONData input) {
+//			super();
+//			
+//			this.time = input.getTime();
+//			this.src_ip = input.getSrc_ip();
+//			this.dst_ip = input.getDst_ip();
+//			this.dport = input.dport;
+//			this.sport = input.sport;
+//			this.synin = input.synin;
+//			this.synackout = input.synackout;
+//			this.rstin = input.rstin;
+//			this.rstout = input.rstout;
+//			this.fin = input.fin;
+//			
+//			
+//			this.setBytesin(input.getBytesin() + MAX_BYTESIN);
+//			this.setBytesout(input.getBytesout() + MAX_BYTESOUT);
+//			
+//			this.setPktsin(input.getPktsin() + MAX_PACKETS_IN);
+//			this.setPktsout(input.getPktsout() + MAX_PACKETS_OUT);
+//			this.setPkts(input.getPktsin() + input.getPktsout());
+//			
+//			this.setPost((input.getPost() + 1l) * r.nextInt(2));
+//			this.setGet((input.getGet() + 1l) * r.nextInt(2));
+//		}
+//	}
+	
+	
 	public static class NMAJSONDataAnomaly extends NMAJSONData{
 		/**
 		 * 
@@ -245,18 +330,39 @@ public class NMAJSONDataGenerator {
 			this.rstout = input.rstout;
 			this.fin = input.fin;
 			
+			double k = 0.9;
 			
-			this.setBytesin(input.getBytesin() * (1+ r.nextInt(2)));
-			this.setBytesout(input.getBytesout()* (1+ r.nextInt(2)));
+			if (NMAJSONDataGenerator.r.nextInt(5) != 0) {
+				this.setBytesin(Math.round(this.getBytesin() + (NMAJSONDataGenerator.MAX_BYTESIN * k) ));
+			}else {
+				this.setBytesin(Math.max(Math.round(this.getBytesin() - (NMAJSONDataGenerator.MAX_BYTESIN * k) ),0));
+			}
+			if (NMAJSONDataGenerator.r.nextInt(5) != 0) {
+				this.setBytesout(Math.round(this.getBytesout() + (NMAJSONDataGenerator.MAX_BYTESOUT * k)));
+			}else {
+				this.setBytesout(Math.max(Math.round(this.getBytesout() - (NMAJSONDataGenerator.MAX_BYTESOUT * k) ),0));
+			}
 			
-			this.setPktsin(input.getPktsin() * (1+ r.nextInt(2)));
-			this.setPktsout(input.getPktsout() * (1+ r.nextInt(2)));
-			this.setPkts(input.getPktsin() + input.getPktsout());
+			if (NMAJSONDataGenerator.r.nextInt(5) != 0) {
+				this.setPktsin(Math.round(this.getPktsin() + (NMAJSONDataGenerator.MAX_PACKETS_IN * k) ));
+			}else {
+				this.setPktsin(Math.max(Math.round(this.getPktsin() - (NMAJSONDataGenerator.MAX_PACKETS_IN * k) ),0));
+			}
+			if (NMAJSONDataGenerator.r.nextInt(5) != 0) {
+				this.setPktsout(Math.round(this.getPktsout() + (NMAJSONDataGenerator.MAX_PACKETS_OUT * k)));
+			}else {
+				this.setPktsout(Math.max(Math.round(this.getPktsout() - (NMAJSONDataGenerator.MAX_PACKETS_OUT * k) ),0));
+			}				
 			
-			this.setPost((input.getPost() + 1l) * r.nextInt(2));
-			this.setGet((input.getGet() + 1l) * r.nextInt(2));
+			this.setPkts(this.getPktsin() + this.getPktsout());
+			
+			this.setPost(Math.round((this.getPost() + 1) * NMAJSONDataGenerator.r.nextDouble()));
+			this.setGet(Math.round((this.getGet() + 1) * NMAJSONDataGenerator.r.nextDouble()));			
 		}
 	}
+	
+	
+	
 
 
 }

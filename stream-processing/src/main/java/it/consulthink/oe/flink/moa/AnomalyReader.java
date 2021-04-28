@@ -1,6 +1,7 @@
 package it.consulthink.oe.flink.moa;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.Enumeration;
@@ -11,9 +12,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import javax.xml.crypto.KeySelector;
 
+import org.apache.flink.api.common.functions.FilterFunction;
 import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.functions.ReduceFunction;
@@ -70,6 +73,7 @@ public class AnomalyReader extends AbstractApp {
 
 
     private static final String STREAM_KM = "StreamKM";
+    public static double TOLLERANCE = 0.5d;
 
 	// Logger initialization
     private static final Logger LOG = LoggerFactory.getLogger(AnomalyReader.class);
@@ -140,8 +144,14 @@ public class AnomalyReader extends AbstractApp {
     }
 
 	public static void trainStreamKM(AppConfiguration appConfiguration, long elements) {
-		NMAJSONDataGenerator.generateInfiniteStreamNoAnomaly(appConfiguration.getMyIps())
-		.limit(elements)
+		Stream<NMAJSONData> stream = NMAJSONDataGenerator.generateInfiniteStreamNoAnomaly(appConfiguration.getMyIps())
+		.limit(elements);
+        trainStreamKM(stream);
+	}
+	
+	public static void trainStreamKM(Stream<NMAJSONData> stream) {
+		getDefaultStreamKM().resetLearning();
+		stream
         .map(data ->{
 	        //TODO
 	        return toDenseInstance(data);
@@ -154,13 +164,16 @@ public class AnomalyReader extends AbstractApp {
 				LOG.error(e.getMessage());
 			}
         });
-	}
+	}	
 
 	public static DenseInstance toDenseInstance(NMAJSONData data) {
 		DenseInstance instance = new DenseInstance(3);
-		instance.setValue(0, Math.min((data.getPkts())/512d, 1d));
-		instance.setValue(1, Math.min((data.getBytesin())/85000d, 1d) );
-		instance.setValue(2, Math.min((data.getBytesout())/85000d, 1d));
+		double packets = Math.min((data.getPkts())/((double)NMAJSONDataGenerator.MAX_PACKETS ), 1d);
+		double bytesin = Math.min((data.getBytesin())/((double)NMAJSONDataGenerator.MAX_BYTESIN ), 1d);
+		double bytesout = Math.min((data.getBytesout())/((double)NMAJSONDataGenerator.MAX_BYTESOUT ), 1d);
+		instance.setValue(0, packets);
+		instance.setValue(1, bytesin );
+		instance.setValue(2, bytesout);
 		return instance;
 	}
 
@@ -221,7 +234,12 @@ public class AnomalyReader extends AbstractApp {
 					.connect(kmStream);
 			result = connectedStream
 					.process(pf)
-					.filter(t -> t.f1 <= 0.5d);
+					.filter(new FilterFunction<Tuple3<NMAJSONData,Double,Cluster>>() {
+						@Override
+						public boolean filter(Tuple3<NMAJSONData, Double, Cluster> t) throws Exception {
+							return (t.f2 == null || t.f1 == 0d);
+						}
+					});
 		
 
 				
@@ -232,13 +250,17 @@ public class AnomalyReader extends AbstractApp {
 	public static synchronized StreamKM getDefaultStreamKM() {
 		if (streamKM != null)
 			return streamKM;
-		streamKM = new StreamKM();
-        streamKM.numClustersOption.setValue(5); 
-        streamKM.lengthOption.setValue(100000); 
-        streamKM.resetLearning(); // UPDATED CODE LINE !!!
+		streamKM = generateStreamKM(100000,5);
 		return streamKM;
 	}
 
+	public static synchronized StreamKM generateStreamKM(int lengthOption, int numClustersOption) {
+		streamKM = new StreamKM();
+        streamKM.numClustersOption.setValue(numClustersOption); 
+        streamKM.lengthOption.setValue(lengthOption); 
+        streamKM.resetLearning(); // UPDATED CODE LINE !!!
+		return streamKM;
+	}
 
     public static BoundedOutOfOrdernessTimestampExtractor<NMAJSONData> getTimestampAndWatermarkAssigner() {
         BoundedOutOfOrdernessTimestampExtractor<NMAJSONData> timestampAndWatermarkAssigner = new BoundedOutOfOrdernessTimestampExtractor<NMAJSONData>(Time.seconds(10)) {
@@ -308,8 +330,11 @@ public class AnomalyReader extends AbstractApp {
 				        	i++;
 						}
 					}
-
-					streamKM.trainOnInstanceImpl(instance);
+					if (result == null || (result.getMaxInclusionProbability(instance) > 0 && result.getMaxInclusionProbability(instance) < 1)){
+						streamKM.trainOnInstanceImpl(instance);
+					}
+					
+					
 					
 				}
 				
