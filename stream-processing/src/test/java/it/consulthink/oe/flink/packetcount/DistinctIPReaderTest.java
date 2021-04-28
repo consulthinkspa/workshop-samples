@@ -1,14 +1,17 @@
 package it.consulthink.oe.flink.packetcount;
 
-import static org.junit.Assert.*;
-
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Date;
+import java.util.Hashtable;
+import java.util.List;
+import java.util.Set;
 
 import org.apache.commons.lang3.time.DateUtils;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
-import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
@@ -16,10 +19,7 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
-import org.apache.flink.streaming.experimental.CollectSink;
-import org.apache.flink.test.util.MiniClusterWithClientResource;
 import org.apache.flink.util.Collector;
-import org.junit.ClassRule;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,7 +30,7 @@ import it.consulthink.oe.model.NMAJSONData;
 import junit.framework.Assert;
 
 public class DistinctIPReaderTest {
-    private static final Logger LOG = LoggerFactory.getLogger(TrafficByDirectionTest.class);
+    private static final Logger LOG = LoggerFactory.getLogger(DistinctIPReaderTest.class);
 
 //    @ClassRule
 //    public static MiniClusterWithClientResource flinkCluster = new MiniClusterWithClientResource(

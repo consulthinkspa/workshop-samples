@@ -12,6 +12,9 @@ public class NMAJSONData implements Serializable {
 	
 	
 	
+public static final String ACTIVE = "ACTIVE";
+public static final String CLOSING = "CLOSING";
+public static final String OPENING = "OPENING";
 /**
 	 * 
 	 */
@@ -33,6 +36,7 @@ public class NMAJSONData implements Serializable {
 	public long synackout;
 	public long rstin;
 	public long rstout;
+	public long fin;
 	public long get;
 	public long post;
 
@@ -55,15 +59,14 @@ public class NMAJSONData implements Serializable {
                 ", synackout='" + synackout + '\'' +
                 ", rstin='" + rstin + '\'' +
                 ", rstout='" + rstout + '\'' +
+                ", fin='" + fin + '\'' +
                 ", get='" + get + '\'' +
                 ", post='" + post + '\'' +
                 '}';
     }
     
-    
-    
     public NMAJSONData(Date time, String src_ip, String dst_ip, String dport, String sport, long bytesin,
-			long bytesout, long pkts, long pktsin, long pktsout, long synin, long synackout, long rstin, long rstout,
+			long bytesout, long pkts, long pktsin, long pktsout, long synin, long synackout, long rstin, long rstout, 
 			long get, long post) {
 		super();
 		this.time = time;
@@ -80,6 +83,29 @@ public class NMAJSONData implements Serializable {
 		this.synackout = synackout;
 		this.rstin = rstin;
 		this.rstout = rstout;
+		this.get = get;
+		this.post = post;
+	}   
+    
+    public NMAJSONData(Date time, String src_ip, String dst_ip, String dport, String sport, long bytesin,
+			long bytesout, long pkts, long pktsin, long pktsout, long synin, long synackout, long rstin, long rstout, long fin,
+			long get, long post) {
+		super();
+		this.time = time;
+		this.src_ip = src_ip;
+		this.dst_ip = dst_ip;
+		this.dport = dport;
+		this.sport = sport;
+		this.bytesin = bytesin;
+		this.bytesout = bytesout;
+		this.pkts = pkts;
+		this.pktsin = pktsin;
+		this.pktsout = pktsout;
+		this.synin = synin;
+		this.synackout = synackout;
+		this.rstin = rstin;
+		this.rstout = rstout;
+		this.fin = fin;
 		this.get = get;
 		this.post = post;
 	}
@@ -206,6 +232,20 @@ public class NMAJSONData implements Serializable {
 		this.rstout = rstout;
 	}
 
+	
+	
+	public long getFin() {
+		return fin;
+	}
+
+
+
+	public void setFin(long fin) {
+		this.fin = fin;
+	}
+
+
+
 	public long getGet() {
 		return get;
 	}
@@ -232,6 +272,7 @@ public class NMAJSONData implements Serializable {
 		result = prime * result + (int) (bytesout ^ (bytesout >>> 32));
 		result = prime * result + ((dport == null) ? 0 : dport.hashCode());
 		result = prime * result + ((dst_ip == null) ? 0 : dst_ip.hashCode());
+		result = prime * result + (int) (fin ^ (fin >>> 32));
 		result = prime * result + (int) (get ^ (get >>> 32));
 		result = prime * result + (int) (pkts ^ (pkts >>> 32));
 		result = prime * result + (int) (pktsin ^ (pktsin >>> 32));
@@ -272,6 +313,8 @@ public class NMAJSONData implements Serializable {
 				return false;
 		} else if (!dst_ip.equals(other.dst_ip))
 			return false;
+		if (fin != other.fin)
+			return false;		
 		if (get != other.get)
 			return false;
 		if (pkts != other.pkts)
@@ -308,5 +351,19 @@ public class NMAJSONData implements Serializable {
 		return true;
 	}
     
-    
+	public String getSessionHash() {
+		if (src_ip == null || sport == null || dst_ip == null || dport == null)
+			return "";
+    	return String.valueOf( src_ip.concat(sport).hashCode() ^ dst_ip.concat(dport).hashCode() );
+    }
+	
+	public String getSessionState() {
+		if (synin !=0 && fin == 0 && synackout == 0) {
+			return OPENING;
+		}else if (fin != 0 ) {
+			return CLOSING;
+		}else {
+			return ACTIVE;
+		}
+	}
 }

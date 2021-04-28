@@ -1,32 +1,23 @@
 package it.consulthink.oe.flink.packetcount;
 
-import static org.junit.Assert.*;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Hashtable;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import org.apache.commons.lang3.time.DateUtils;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
-import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.functions.co.KeyedBroadcastProcessFunction;
 import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
-import org.apache.flink.test.util.MiniClusterWithClientResource;
 import org.apache.flink.util.Collector;
-import org.junit.ClassRule;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,7 +28,7 @@ import it.consulthink.oe.model.NMAJSONData;
 import junit.framework.Assert;
 
 public class DistinctIPReader2Test {
-    private static final Logger LOG = LoggerFactory.getLogger(TrafficByDirectionTest.class);
+    private static final Logger LOG = LoggerFactory.getLogger(DistinctIPReader2Test.class);
 
 //    @ClassRule
 //    public static MiniClusterWithClientResource flinkCluster = new MiniClusterWithClientResource(
@@ -152,6 +143,50 @@ public class DistinctIPReader2Test {
         Assert.assertEquals(Integer.valueOf(3), CollectSink.values.get(1).f2);
 
     }
+    
+    @Test
+    public void testProcessSourceFromXLSX() throws Exception {
+    	CollectSink.values.clear();
+    	
+		AppConfiguration ac = new AppConfiguration(new String[0]);
+		Set<String> myIps = ac.getMyIps();
+
+        StreamExecutionEnvironment senv = StreamExecutionEnvironment.getExecutionEnvironment();
+        senv.setParallelism(3);
+        senv.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+
+		Date example = DateUtils.parseDate("2021-03-21  22:59:58", "yyyy-MM-dd HH:mm:ss");
+		Date example1 = DateUtils.parseDate("2021-03-21  22:59:59", "yyyy-MM-dd HH:mm:ss");
+
+		List<NMAJSONData> iterable = TestUtilities.readCSV("metrics_23-03-ordered.csv");
+
+        DataStream<NMAJSONData> source = senv.fromCollection(iterable).filter(TestUtilities.getFilterFunction());
+
+        source.printToErr();
+        LOG.info("==============  ProcessSource Source - PRINTED  ===============");
+
+        SingleOutputStreamOperator<Tuple3<String, Integer, Integer>> datasource = DistinctIPReader2.processSource(senv, source, myIps);
+
+
+//		datasource.printToErr();
+        LOG.info("==============  ProcessSource Processed - PRINTED  ===============");
+        CollectSink sink = new CollectSink();
+		datasource.addSink(sink);
+//		datasource.printToErr();
+        LOG.info("==============  ProcessSource Sink - PRINTED  ===============");
+        senv.execute();
+
+
+        List<Tuple3<String, Integer, Integer>> values = CollectSink.values;
+        for (Tuple3<String, Integer, Integer> t : values) {
+			LOG.info(""+t);
+		}
+        
+        
+        // verify your results
+        Assert.assertEquals(3, CollectSink.values.size());
+        
+    }    
 
     private static class CollectSink implements SinkFunction<Tuple3<String, Integer, Integer>> {
 

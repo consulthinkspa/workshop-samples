@@ -201,6 +201,9 @@ public class NMAJSONDataGenerator {
 		long rstin = pktsin - synin;
 		long rstout = pktsout - synackout;
 		
+//		TODO
+		long fin = r.nextInt(1000) == 0 ? 1l : 0l;
+		
 		long get = 0l;
 		long post = 0l;
 		
@@ -213,7 +216,7 @@ public class NMAJSONDataGenerator {
 		}
 
 		
-		result = new NMAJSONData(time, src_ip, dst_ip, dport, sport, bytesin, bytesout, pkts, pktsin, pktsout, synin, synackout, rstin, rstout, get, post);
+		result = new NMAJSONData(time, src_ip, dst_ip, dport, sport, bytesin, bytesout, pkts, pktsin, pktsout, synin, synackout, rstin, rstout, fin, get, post);
 		
 		
 		return result;
