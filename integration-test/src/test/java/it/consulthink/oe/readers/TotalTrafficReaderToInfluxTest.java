@@ -67,7 +67,7 @@ public class TotalTrafficReaderToInfluxTest {
 
 
 
-		String inputStreamName = "testGetSink1";
+		String inputStreamName = this.getClass()+".testGetSink1";
 		RichSinkFunction<Tuple2<Date, Long>> sink = TotalTrafficReaderToInflux.getSink1(inputStreamName, influxdb1Url,
 				influxdbUsername, influxdbPassword, influxdbDbName);
 
@@ -88,7 +88,7 @@ public class TotalTrafficReaderToInfluxTest {
 
 
 
-		String inputStreamName = "testGetSink2";
+		String inputStreamName = this.getClass()+".testGetSink2";
 		RichSinkFunction<Tuple2<Date, Long>> sink = TotalTrafficReaderToInflux.getSink2(inputStreamName, influxdb2Url,
 				org, token, bucket);
 
@@ -124,7 +124,7 @@ public class TotalTrafficReaderToInfluxTest {
 		.iterator());
 
 
-		String inputStreamName = "Total Traffic";
+		String inputStreamName = this.getClass()+".testGetSink1Infinite";
 		RichSinkFunction<Tuple2<Date, Long>> sink = TotalTrafficReaderToInflux.getSink1(inputStreamName, influxdb1Url,
 				influxdbUsername, influxdbPassword, influxdbDbName);
 
@@ -156,7 +156,7 @@ public class TotalTrafficReaderToInfluxTest {
 		.iterator());
 
 
-		String inputStreamName = "testGetSink2Infinite";
+		String inputStreamName = this.getClass()+".testGetSink2Infinite";
 		RichSinkFunction<Tuple2<Date, Long>> sink = TotalTrafficReaderToInflux.getSink2(inputStreamName, influxdb2Url,
 				org, token, bucket);
 

@@ -65,7 +65,7 @@ public class SynInReaderToInfluxTest {
 
 
 
-		String inputStreamName = "testGetSink1";
+		String inputStreamName = this.getClass()+".testGetSink1";
 		RichSinkFunction<Tuple2<Date, Long>> sink = SynInReaderToInflux.getSink1(inputStreamName, influxdb1Url,
 				influxdbUsername, influxdbPassword, influxdbDbName);
 
@@ -86,7 +86,7 @@ public class SynInReaderToInfluxTest {
 
 
 
-		String inputStreamName = "testGetSink2";
+		String inputStreamName = this.getClass()+".testGetSink2";
 		RichSinkFunction<Tuple2<Date, Long>> sink = SynInReaderToInflux.getSink2(inputStreamName, influxdb2Url,
 				org, token, bucket);
 
@@ -122,7 +122,7 @@ public class SynInReaderToInfluxTest {
 		.iterator());
 
 
-		String inputStreamName = "Syn in Ingresso";
+		String inputStreamName = this.getClass()+".Syn in Ingresso";
 		RichSinkFunction<Tuple2<Date, Long>> sink = SynInReaderToInflux.getSink1(inputStreamName, influxdb1Url,
 				influxdbUsername, influxdbPassword, influxdbDbName);
 
@@ -154,7 +154,7 @@ public class SynInReaderToInfluxTest {
 		.iterator());
 
 
-		String inputStreamName = "testGetSink2Infinite";
+		String inputStreamName = this.getClass()+".testGetSink2Infinite";
 		RichSinkFunction<Tuple2<Date, Long>> sink = SynInReaderToInflux.getSink2(inputStreamName, influxdb2Url,
 				org, token, bucket);
 

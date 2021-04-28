@@ -68,7 +68,7 @@ public class DistinctIPReaderToInfluxTest {
 
 
 
-		String inputStreamName = "testGetSink1";
+		String inputStreamName = this.getClass()+".testGetSink1";
 		RichSinkFunction<Tuple3<Date, Integer, Integer>> sink = DistinctIPReaderToInflux.getSink1(inputStreamName, influxdb1Url,
 				influxdbUsername, influxdbPassword, influxdbDbName);
 
@@ -89,7 +89,7 @@ public class DistinctIPReaderToInfluxTest {
 
 
 
-		String inputStreamName = "testGetSink2";
+		String inputStreamName = this.getClass()+".testGetSink2";
 		RichSinkFunction<Tuple3<Date, Integer, Integer>> sink = DistinctIPReaderToInflux.getSink2(inputStreamName, influxdb2Url,
 				org, token, bucket);
 
@@ -125,7 +125,7 @@ public class DistinctIPReaderToInfluxTest {
 		.iterator());
 
 
-		String inputStreamName = "Total Traffic";
+		String inputStreamName = this.getClass()+".testGetSink1Infinite";
 		RichSinkFunction<Tuple3<Date, Integer, Integer>> sink = DistinctIPReaderToInflux.getSink1(inputStreamName, influxdb1Url,
 				influxdbUsername, influxdbPassword, influxdbDbName);
 
@@ -157,7 +157,7 @@ public class DistinctIPReaderToInfluxTest {
 		.iterator());
 
 
-		String inputStreamName = "testGetSink2Infinite";
+		String inputStreamName = this.getClass()+".testGetSink2Infinite";
 		RichSinkFunction<Tuple3<Date, Integer, Integer>> sink = DistinctIPReaderToInflux.getSink2(inputStreamName, influxdb2Url,
 				org, token, bucket);
 

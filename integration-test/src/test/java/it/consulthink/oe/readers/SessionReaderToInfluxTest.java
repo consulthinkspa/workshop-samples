@@ -66,7 +66,7 @@ public class SessionReaderToInfluxTest {
 
 
 
-		String inputStreamName = "testGetSink1";
+		String inputStreamName = this.getClass()+".testGetSink1";
 		RichSinkFunction<Tuple4<Date, Integer, Integer, Integer>> sink = SessionReaderToInflux.getSink1(inputStreamName, influxdb1Url,
 				influxdbUsername, influxdbPassword, influxdbDbName);
 
@@ -87,7 +87,7 @@ public class SessionReaderToInfluxTest {
 
 
 
-		String inputStreamName = "testGetSink2";
+		String inputStreamName = this.getClass()+".testGetSink2";
 		RichSinkFunction<Tuple4<Date, Integer, Integer, Integer>> sink = SessionReaderToInflux.getSink2(inputStreamName, influxdb2Url,
 				org, token, bucket);
 
@@ -123,7 +123,7 @@ public class SessionReaderToInfluxTest {
 		.iterator());
 
 
-		String inputStreamName = "Total Traffic";
+		String inputStreamName = this.getClass()+".testGetSink1Infinite";
 		RichSinkFunction<Tuple4<Date, Integer, Integer, Integer>> sink = SessionReaderToInflux.getSink1(inputStreamName, influxdb1Url,
 				influxdbUsername, influxdbPassword, influxdbDbName);
 
@@ -155,7 +155,7 @@ public class SessionReaderToInfluxTest {
 		.iterator());
 
 
-		String inputStreamName = "testGetSink2Infinite";
+		String inputStreamName = this.getClass()+".testGetSink2Infinite";
 		RichSinkFunction<Tuple4<Date, Integer, Integer, Integer>> sink = SessionReaderToInflux.getSink2(inputStreamName, influxdb2Url,
 				org, token, bucket);
 
