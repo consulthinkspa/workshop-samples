@@ -59,6 +59,7 @@ import com.yahoo.labs.samoa.instances.InstanceImpl;
 import io.pravega.connectors.flink.FlinkPravegaReader;
 import io.pravega.connectors.flink.FlinkPravegaWriter;
 import io.pravega.connectors.flink.PravegaConfig;
+import it.consulthink.oe.ingest.NMAJSONDataGenerator;
 import it.consulthink.oe.model.NMAJSONData;
 import moa.cluster.Cluster;
 import moa.cluster.Clustering;
@@ -110,6 +111,9 @@ public class AnomalyReader extends AbstractApp {
         DataStream<NMAJSONData> source = env.addSource(sourceFunction).name("InputSource");
         LOG.info("==============  Source  =============== " + source);
 
+        
+        trainStreamKM(appConfiguration, 500);
+        
         SingleOutputStreamOperator<Tuple3<NMAJSONData, Double, Cluster>> dataStream = processSource(env, source);
 
         dataStream.printToErr();
@@ -135,6 +139,32 @@ public class AnomalyReader extends AbstractApp {
         }
     }
 
+	public static void trainStreamKM(AppConfiguration appConfiguration, long elements) {
+		NMAJSONDataGenerator.generateInfiniteStreamNoAnomaly(appConfiguration.getMyIps())
+		.limit(elements)
+        .map(data ->{
+	        //TODO
+	        return toDenseInstance(data);
+        })
+        .forEach(inst ->{
+        	
+        	try {
+				getDefaultStreamKM().trainOnInstance(inst);
+			} catch (Throwable e) {
+				LOG.error(e.getMessage());
+			}
+        });
+	}
+
+	public static DenseInstance toDenseInstance(NMAJSONData data) {
+		DenseInstance instance = new DenseInstance(3);
+		instance.setValue(0, Math.min((data.getPkts())/512d, 1d));
+		instance.setValue(1, Math.min((data.getBytesin())/85000d, 1d) );
+		instance.setValue(2, Math.min((data.getBytesout())/85000d, 1d));
+		return instance;
+	}
+
+	
 
     @SuppressWarnings("unchecked")
     private FlinkPravegaReader<NMAJSONData> getSourceFunction(PravegaConfig pravegaConfig, String inputStreamName) {
@@ -153,7 +183,7 @@ public class AnomalyReader extends AbstractApp {
         FlinkPravegaWriter<Tuple3<NMAJSONData, Double, Cluster>> sink = FlinkPravegaWriter.<Tuple3<NMAJSONData, Double, Cluster>>builder()
                 .withPravegaConfig(pravegaConfig)
                 .forStream(outputStreamName)
-                .withEventRouter((x) -> "Sessions")
+                .withEventRouter((x) -> "Anomalies")
                 .withSerializationSchema(new JsonSerializationSchema<Tuple3<NMAJSONData, Double, Cluster>>())
                 .build();
         return sink;
@@ -165,12 +195,10 @@ public class AnomalyReader extends AbstractApp {
     	SingleOutputStreamOperator<Tuple3<NMAJSONData, Double, Cluster>> result = null;
     	
     	
-        StreamKM streamKM = new StreamKM();
-        streamKM.numClustersOption.setValue(5); 
-        streamKM.lengthOption.setValue(100000); 
-        streamKM. resetLearning(); // UPDATED CODE LINE !!!
+        StreamKM streamKM = getDefaultStreamKM();
     	
-
+        
+        
         
 		BroadcastStream<StreamKM> kmStream = env.fromElements(streamKM).broadcast(kmStateDesc);
 
@@ -199,6 +227,17 @@ public class AnomalyReader extends AbstractApp {
 				
 		return result;
     }
+
+    private static StreamKM streamKM = null;
+	public static synchronized StreamKM getDefaultStreamKM() {
+		if (streamKM != null)
+			return streamKM;
+		streamKM = new StreamKM();
+        streamKM.numClustersOption.setValue(5); 
+        streamKM.lengthOption.setValue(100000); 
+        streamKM.resetLearning(); // UPDATED CODE LINE !!!
+		return streamKM;
+	}
 
 
     public static BoundedOutOfOrdernessTimestampExtractor<NMAJSONData> getTimestampAndWatermarkAssigner() {
@@ -236,10 +275,7 @@ public class AnomalyReader extends AbstractApp {
 				double maxProbability = 0;
 				Cluster assignedCluster = null;
 				if (streamKM == null && streamKM1 == null && streamKM2 == null) {
-			        streamKM = new StreamKM();
-			        streamKM.numClustersOption.setValue(5); 
-			        streamKM.lengthOption.setValue(100000); 
-			        streamKM. resetLearning(); // UPDATED CODE LINE !!!
+			        streamKM = getDefaultStreamKM();
 				}else if (streamKM1 != null){
 					streamKM = streamKM1;
 				}else {
@@ -248,10 +284,7 @@ public class AnomalyReader extends AbstractApp {
 				if (streamKM != null) {
 					
 			        //TODO
-			        final DenseInstance instance = new DenseInstance(3);
-			        instance.setValue(0, Math.min((data.getPkts())/512d, 1d));
-			        instance.setValue(1, Math.min((data.getBytesin())/85000d, 1d) );
-			        instance.setValue(2, Math.min((data.getBytesout())/85000d, 1d));
+			        final DenseInstance instance = toDenseInstance(data);
 
 			        
 					Clustering result = null;
@@ -259,11 +292,6 @@ public class AnomalyReader extends AbstractApp {
 						result = streamKM.getClusteringResult();
 					} catch (Throwable e) {
 					}		
-					if (result != null) {
-						LOG.info("StreamKM clusteringResult"+" "+result);
-//						LOG.info("StreamKM clusteringResult size"+" "+clusteringResult.size());
-//						LOG.info("StreamKM clusteringResult dimension"+" "+clusteringResult.dimension());					
-					}
 					if (result != null) {
 				        AutoExpandVector<Cluster> clusteringCopy = result.getClusteringCopy();
 
@@ -277,17 +305,12 @@ public class AnomalyReader extends AbstractApp {
 				        		maxProbability = inclusionProbability; 
 				        		assignedCluster = cluster;
 				        	}
-				        	System.out.println(i);
-				        	if (inclusionProbability >= 1) {
-				        		break;
-				        	}
-				        	
 				        	i++;
 						}
 					}
-			        
-					//TODO
+
 					streamKM.trainOnInstanceImpl(instance);
+					
 				}
 				
 

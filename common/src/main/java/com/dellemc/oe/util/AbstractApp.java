@@ -28,7 +28,7 @@ public abstract class AbstractApp implements Runnable {
 
     private static Logger LOG = LoggerFactory.getLogger( AbstractApp.class );
 
-    protected final AppConfiguration appConfiguration;
+    protected AppConfiguration appConfiguration;
 
     public AbstractApp(AppConfiguration appConfiguration) {
         this.appConfiguration = appConfiguration;

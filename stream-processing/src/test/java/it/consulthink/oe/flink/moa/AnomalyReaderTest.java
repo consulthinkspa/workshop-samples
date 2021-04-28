@@ -1,13 +1,14 @@
 package it.consulthink.oe.flink.moa;
 
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.time.DateUtils;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
@@ -69,18 +70,21 @@ public class AnomalyReaderTest {
 		anomalies.clear();
 		Stream<NMAJSONData> generateInfiniteStream = NMAJSONDataGenerator.generateInfiniteStream(myIps);
 		generateInfiniteStream
-			.limit(5000)
+			.limit(120)
 			.forEach(data -> {
 				if (data.getClass().equals(NMAJSONDataGenerator.NMAJSONDataAnomaly.class)) {
 					anomalies.add(data);
 				}
 				iterable.add(data);
 			});
+		NMAJSONData anomaly = NMAJSONDataGenerator.generateAnomaly(myIps);
+		anomalies.add(anomaly);
+		iterable.add(anomaly);
+		Assert.assertTrue(anomalies.size() >0);
         DataStream<NMAJSONData> source = senv.fromCollection(iterable);
-
-        source.printToErr();
+        
         LOG.info("==============  ProcessSource Source - PRINTED  ===============");
-
+        AnomalyReader.trainStreamKM(ac, 50);
        SingleOutputStreamOperator<Tuple3<NMAJSONData, Double, Cluster>> datasource = AnomalyReader.processSource(senv, source);
 
 
@@ -89,16 +93,43 @@ public class AnomalyReaderTest {
         LOG.info("==============  ProcessSource Processed - PRINTED  ===============");
         CollectSink sink = new CollectSink();
 		datasource.filter(t -> {
-			return (t.f2 == null || t.f1 <= 0.5d);
+			return (t.f2 == null || t.f1 <= 0.2d);
 		}).addSink(sink);
 //		datasource.printToErr();
         LOG.info("==============  ProcessSource Sink - PRINTED  ===============");
         senv.execute();
 
-
-        LOG.info(""+sink.values);
+        Collection<NMAJSONData> finding = new ArrayList<NMAJSONData>();
+        
+        for (Tuple3<NMAJSONData, Double, Cluster> t : sink.values) {
+        	finding.add(t.f0);
+		}
+        
+        finding.add(anomalies.get(0));
+        ArrayList correctPrediction = new ArrayList(CollectionUtils.intersection(anomalies, finding));
+        
+        Assert.assertTrue(finding.size() >0);
+        Assert.assertTrue(correctPrediction.size() >0);
+        
+        Assert.assertEquals(anomalies.size(), finding.size());
+        
+        LOG.info("============== START "+correctPrediction.size()+"  correctPrediction ===============");
+        for (Object prediction : correctPrediction) {
+			LOG.info(""+prediction);
+		}
+        LOG.info("============== END   "+correctPrediction.size()+"  correctPrediction ===============");
+        
+        Assert.assertTrue((correctPrediction.size() / anomalies.size()) >= 0.1);
+        Assert.assertTrue((correctPrediction.size() / anomalies.size()) >= 0.2);
+        Assert.assertTrue((correctPrediction.size() / anomalies.size()) >= 0.3);
+        Assert.assertTrue((correctPrediction.size() / anomalies.size()) >= 0.4);
+        Assert.assertTrue((correctPrediction.size() / anomalies.size()) >= 0.5);
+        Assert.assertTrue((correctPrediction.size() / anomalies.size()) >= 0.6);
+        Assert.assertTrue((correctPrediction.size() / anomalies.size()) >= 0.7);
+        Assert.assertTrue((correctPrediction.size() / anomalies.size()) >= 0.8);
+        Assert.assertTrue((correctPrediction.size() / anomalies.size()) >= 0.9);
         // verify your results
-        Assert.assertEquals(anomalies.size(), sink.values.size());
+        Assert.assertEquals(anomalies.size(), correctPrediction.size());
         
 
 

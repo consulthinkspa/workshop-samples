@@ -127,6 +127,17 @@ public class NMAJSONDataGenerator {
 		});
 	}
 	
+	public static Stream<NMAJSONData> generateInfiniteStreamNoAnomaly(Collection<String> myIps){
+		
+		return Stream.generate(new Supplier<NMAJSONData>() {
+			@Override
+			public NMAJSONData get() {
+				return generateStandard(myIps);
+			}
+			
+		});
+	}	
+	
 		
 	public static NMAJSONData generateAnomaly(Collection<String> myIps) {
 		
