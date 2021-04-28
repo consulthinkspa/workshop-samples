@@ -3,6 +3,7 @@
  */
 package it.consulthink.oe.ingest;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -11,7 +12,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
-import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -106,7 +106,8 @@ public class NMAJSONDataGenerator {
 		return result;
 	}
 	
-	public static Stream<NMAJSONData> generateInfiniteStream(List<String> myIps){
+
+	public static Stream<NMAJSONData> generateInfiniteStream(Collection<String> myIps){
 		
 		return Stream.generate(new Supplier<NMAJSONData>() {
 
@@ -127,26 +128,17 @@ public class NMAJSONDataGenerator {
 	}
 	
 		
-	public static NMAJSONData generateAnomaly(List<String> myIps) {
+	public static NMAJSONData generateAnomaly(Collection<String> myIps) {
 		
-		NMAJSONData result = generateStandard(myIps);
-		result.setBytesin(result.getBytesin() * (1+ r.nextInt(2)));
-		result.setBytesout(result.getBytesout()* (1+ r.nextInt(2)));
-		
-		result.setPktsin(result.getPktsin() * (1+ r.nextInt(2)));
-		result.setPktsout(result.getPktsout() * (1+ r.nextInt(2)));
-		result.setPkts(result.getPktsin() + result.getPktsout());
-		
-		result.setPost((result.getPost() + 1l) * r.nextInt(2));
-		result.setGet((result.getGet() + 1l) * r.nextInt(2));
+		NMAJSONData result = new NMAJSONDataAnomaly(generateStandard(myIps));
 		
 		return result;
 		
 		
 	}
 	
-	public static NMAJSONData generateStandard(List<String> myIps) {
-		if (myIps == null || myIps.isEmpty()) {
+	public static NMAJSONData generateStandard(Collection<String> ips) {
+		if (ips == null || ips.isEmpty()) {
 			String str = ""
 	                + "213.61.202.114,"
 	                + "213.61.202.115,"
@@ -162,9 +154,9 @@ public class NMAJSONDataGenerator {
 	                + "213.61.202.125,"
 	                + "213.61.202.126";
 			String[] a = str.split(",");
-			myIps = Arrays.asList(a);			
+			ips = Arrays.asList(a);			
 		}
-
+		List<String> myIps = new ArrayList<String>(ips);
 		
 		NMAJSONData result = null;
 		
@@ -222,6 +214,40 @@ public class NMAJSONDataGenerator {
 		return result;
 	}
 	
+	public static class NMAJSONDataAnomaly extends NMAJSONData{
+		/**
+		 * 
+		 */
+		private static final long serialVersionUID = 1L;
+
+		public NMAJSONDataAnomaly(NMAJSONData input) {
+			super();
+			
+			this.time = input.getTime();
+			this.src_ip = input.getSrc_ip();
+			this.dst_ip = input.getDst_ip();
+			this.dport = input.dport;
+			this.sport = input.sport;
+			this.synin = input.synin;
+			this.synackout = input.synackout;
+			this.rstin = input.rstin;
+			this.rstout = input.rstout;
+			this.fin = input.fin;
+			
+			
+			this.setBytesin(input.getBytesin() * (1+ r.nextInt(2)));
+			this.setBytesout(input.getBytesout()* (1+ r.nextInt(2)));
+			
+			this.setPktsin(input.getPktsin() * (1+ r.nextInt(2)));
+			this.setPktsout(input.getPktsout() * (1+ r.nextInt(2)));
+			this.setPkts(input.getPktsin() + input.getPktsout());
+			
+			this.setPost((input.getPost() + 1l) * r.nextInt(2));
+			this.setGet((input.getGet() + 1l) * r.nextInt(2));
+		}
+	}
 
 
 }
+
+
