@@ -105,13 +105,10 @@ public class AnomalyReaderTest {
         	finding.add(t.f0);
 		}
         
-        finding.add(anomalies.get(0));
-        ArrayList correctPrediction = new ArrayList(CollectionUtils.intersection(anomalies, finding));
-        
-        Assert.assertTrue(finding.size() >0);
-        Assert.assertTrue(correctPrediction.size() >0);
         
         Assert.assertEquals(anomalies.size(), finding.size());
+        
+        ArrayList correctPrediction = new ArrayList(CollectionUtils.intersection(anomalies, finding));
         
         LOG.info("============== START "+correctPrediction.size()+"  correctPrediction ===============");
         for (Object prediction : correctPrediction) {
