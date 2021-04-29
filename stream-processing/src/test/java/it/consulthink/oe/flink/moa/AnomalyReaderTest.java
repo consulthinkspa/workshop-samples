@@ -61,7 +61,7 @@ public class AnomalyReaderTest {
 		input.clear();
 		anomalies.clear();
 		int streamLimit = 5000;
-		int inputElements = 100000;
+		int inputElements = 10000;
 		Stream<NMAJSONData> generateInfiniteStream = NMAJSONDataGenerator.generateInfiniteStream(myIps);
 		generateInfiniteStream.limit(inputElements).forEach(data -> {
 			if (data.getClass().equals(NMAJSONDataGenerator.NMAJSONDataAnomaly.class)) {
@@ -443,7 +443,7 @@ public class AnomalyReaderTest {
 
 
 		public int getFalsePositivePercentage() {
-			return getAnomalySize() == 0 ? 0 : Math.round(100 * getFalsePositiveSize() / getAnomalySize()) ;
+			return getAnomalySize() == 0 ? 0 : Math.round(100 * getFalsePositiveSize() / getFindingSize()) ;
 		}
 
 
