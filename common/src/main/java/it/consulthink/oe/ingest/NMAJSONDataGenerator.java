@@ -169,7 +169,7 @@ public class NMAJSONDataGenerator {
 //				} catch (Throwable e) {
 //					e.printStackTrace();
 //				}
-				return r.nextInt(100) == 0 ? generateAnomaly(myIps) : generateStandard(myIps);
+				return r.nextInt(95) == 0 ? generateAnomaly(myIps) : generateStandard(myIps);
 			}
 			
 			
@@ -315,6 +315,32 @@ public class NMAJSONDataGenerator {
 		 * 
 		 */
 		private static final long serialVersionUID = 1L;
+		
+		
+
+		public NMAJSONDataAnomaly() {
+			super();
+		}
+
+
+
+		public NMAJSONDataAnomaly(Date time, String src_ip, String dst_ip, String dport, String sport, long bytesin,
+				long bytesout, long pkts, long pktsin, long pktsout, long synin, long synackout, long rstin,
+				long rstout, long fin, long get, long post) {
+			super(time, src_ip, dst_ip, dport, sport, bytesin, bytesout, pkts, pktsin, pktsout, synin, synackout, rstin, rstout,
+					fin, get, post);
+		}
+
+
+
+		public NMAJSONDataAnomaly(Date time, String src_ip, String dst_ip, String dport, String sport, long bytesin,
+				long bytesout, long pkts, long pktsin, long pktsout, long synin, long synackout, long rstin,
+				long rstout, long get, long post) {
+			super(time, src_ip, dst_ip, dport, sport, bytesin, bytesout, pkts, pktsin, pktsout, synin, synackout, rstin, rstout,
+					get, post);
+		}
+
+
 
 		public NMAJSONDataAnomaly(NMAJSONData input) {
 			super();
@@ -330,34 +356,41 @@ public class NMAJSONDataGenerator {
 			this.rstout = input.rstout;
 			this.fin = input.fin;
 			
-			double k = 0.9;
+			
 			
 			if (NMAJSONDataGenerator.r.nextInt(5) != 0) {
-				this.setBytesin(Math.round(this.getBytesin() + (NMAJSONDataGenerator.MAX_BYTESIN * k) ));
+				this.setBytesin(Math.round(this.getBytesin() + (NMAJSONDataGenerator.MAX_BYTESIN * getDivergence()) ));
 			}else {
-				this.setBytesin(Math.max(Math.round(this.getBytesin() - (NMAJSONDataGenerator.MAX_BYTESIN * k) ),0));
+				this.setBytesin(Math.max(Math.round(this.getBytesin() - (NMAJSONDataGenerator.MAX_BYTESIN * getDivergence()) ),0));
 			}
 			if (NMAJSONDataGenerator.r.nextInt(5) != 0) {
-				this.setBytesout(Math.round(this.getBytesout() + (NMAJSONDataGenerator.MAX_BYTESOUT * k)));
+				this.setBytesout(Math.round(this.getBytesout() + (NMAJSONDataGenerator.MAX_BYTESOUT * getDivergence())));
 			}else {
-				this.setBytesout(Math.max(Math.round(this.getBytesout() - (NMAJSONDataGenerator.MAX_BYTESOUT * k) ),0));
+				this.setBytesout(Math.max(Math.round(this.getBytesout() - (NMAJSONDataGenerator.MAX_BYTESOUT * getDivergence()) ),0));
 			}
 			
 			if (NMAJSONDataGenerator.r.nextInt(5) != 0) {
-				this.setPktsin(Math.round(this.getPktsin() + (NMAJSONDataGenerator.MAX_PACKETS_IN * k) ));
+				this.setPktsin(Math.round(this.getPktsin() + (NMAJSONDataGenerator.MAX_PACKETS_IN * getDivergence()) ));
 			}else {
-				this.setPktsin(Math.max(Math.round(this.getPktsin() - (NMAJSONDataGenerator.MAX_PACKETS_IN * k) ),0));
+				this.setPktsin(Math.max(Math.round(this.getPktsin() - (NMAJSONDataGenerator.MAX_PACKETS_IN * getDivergence()) ),0));
 			}
 			if (NMAJSONDataGenerator.r.nextInt(5) != 0) {
-				this.setPktsout(Math.round(this.getPktsout() + (NMAJSONDataGenerator.MAX_PACKETS_OUT * k)));
+				this.setPktsout(Math.round(this.getPktsout() + (NMAJSONDataGenerator.MAX_PACKETS_OUT * getDivergence())));
 			}else {
-				this.setPktsout(Math.max(Math.round(this.getPktsout() - (NMAJSONDataGenerator.MAX_PACKETS_OUT * k) ),0));
+				this.setPktsout(Math.max(Math.round(this.getPktsout() - (NMAJSONDataGenerator.MAX_PACKETS_OUT * getDivergence()) ),0));
 			}				
 			
 			this.setPkts(this.getPktsin() + this.getPktsout());
 			
 			this.setPost(Math.round((this.getPost() + 1) * NMAJSONDataGenerator.r.nextDouble()));
 			this.setGet(Math.round((this.getGet() + 1) * NMAJSONDataGenerator.r.nextDouble()));			
+		}
+
+
+
+		private double getDivergence() {
+			double k = (9 + r.nextInt(1))/10d;
+			return k;
 		}
 	}
 	

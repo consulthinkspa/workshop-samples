@@ -10,6 +10,8 @@ import java.util.stream.Stream;
 
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.time.DateUtils;
+import org.apache.commons.math3.stat.inference.TestUtils;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
 import org.apache.flink.streaming.api.TimeCharacteristic;
@@ -44,7 +46,7 @@ public class AnomalyReaderTest {
 
 	@Test
 	public void testProcessSource() throws Exception {
-		CollectSink.values.clear();
+		CollectSink.clear();
 
 		AppConfiguration ac = new AppConfiguration(new String[0]);
 		Set<String> myIps = ac.getMyIps();
@@ -53,28 +55,174 @@ public class AnomalyReaderTest {
 		senv.setParallelism(3);
 		senv.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 
-		Date example = DateUtils.parseDate("2021-03-21  22:59:58", "yyyy-MM-dd HH:mm:ss");
-		Date example1 = DateUtils.parseDate("2021-03-21  22:59:59", "yyyy-MM-dd HH:mm:ss");
-		final List<NMAJSONData> iterable = new ArrayList<NMAJSONData>();
+		final List<NMAJSONData> input = new ArrayList<NMAJSONData>();
 		final List<NMAJSONData> anomalies = new ArrayList<NMAJSONData>();
 
-		iterable.clear();
+		input.clear();
 		anomalies.clear();
-		int streamLimit = 2600;
+		int streamLimit = 5000;
+		int inputElements = 100000;
 		Stream<NMAJSONData> generateInfiniteStream = NMAJSONDataGenerator.generateInfiniteStream(myIps);
-		generateInfiniteStream.limit(500).forEach(data -> {
+		generateInfiniteStream.limit(inputElements).forEach(data -> {
 			if (data.getClass().equals(NMAJSONDataGenerator.NMAJSONDataAnomaly.class)) {
 				anomalies.add(data);
 			}
-			iterable.add(data);
+			input.add(data);
 		});
 		NMAJSONData anomaly = NMAJSONDataGenerator.generateAnomaly(myIps);
 		anomalies.add(anomaly);
-		iterable.add(anomaly);
+		input.add(anomaly);
+		
 		Assert.assertTrue(anomalies.size() >0);
-		DataStream<NMAJSONData> source = senv.fromCollection(iterable);
 
-//		ArrayList<NMAJSONData> readCSV = TestUtilities.readCSV("metrics_23-03-ordered.csv");
+		DataStream<NMAJSONData> source = senv.fromCollection(input);
+
+
+		int lengthOption = streamLimit;
+		int numClustersOption = 2;
+		StreamKM defaultStreamKM = AnomalyReader.generateStreamKM(lengthOption, numClustersOption);
+		Stream<NMAJSONData> stream = NMAJSONDataGenerator.generateInfiniteStreamNoAnomaly(myIps).limit(streamLimit);
+		AnomalyReader.trainStreamKM(stream);
+		
+		SingleOutputStreamOperator<Tuple3<NMAJSONData, Double, Cluster>> datasource = AnomalyReader.processSource(senv,	source);
+
+		CollectSink sink = new CollectSink(input, anomalies);
+		datasource.addSink(sink);
+		senv.execute();
+		System.err.println(sink.toAnomalyString());
+		System.err.println(sink.toFalseEvaluationString());
+		System.err.println(sink.toSensibilityString());
+		
+		Assert.assertTrue(anomalies.size() >0);				
+		
+		Assert.assertEquals(input.size(), sink.getInputSize());
+		Assert.assertEquals(anomalies.size(), sink.getAnomalySize());
+		Assert.assertEquals(sink.values.size(), sink.getFindingSize());
+		Assert.assertEquals(100 * anomalies.size()/input.size(), sink.getAnomalyPercentage(), 1);
+		
+		
+
+		ArrayList correctPrediction = sink.getCorrectPrediction();
+
+		for (Object prediction : correctPrediction) {
+			LOG.info("*** CORRECT PREDICTION *** " + prediction);
+		}			
+
+		if (anomalies.size() > 0) {
+			
+			int correctPredictionSize = correctPrediction.size();
+			int anomalySize = anomalies.size();
+			
+			double sensibility = sink.getSensibility();
+			
+			Assert.assertTrue(sensibility >= 0.1d);
+			Assert.assertTrue(sensibility >= 0.2d);
+			Assert.assertTrue(sensibility >= 0.3d);
+			Assert.assertTrue(sensibility >= 0.4d);
+			Assert.assertTrue(sensibility >= 0.5d);
+			Assert.assertTrue(sensibility >= 0.6d);
+			Assert.assertTrue(sensibility >= 0.7d);
+			Assert.assertTrue(sensibility >= 0.8d);
+			Assert.assertTrue(sensibility >= 0.9d);
+			// verify your results
+			Assert.assertEquals(anomalySize, correctPredictionSize);			
+		}
+
+
+	}
+	
+	@Test
+	public void testNumberClusters() throws Exception {
+		
+
+		AppConfiguration ac = new AppConfiguration(new String[0]);
+		Set<String> myIps = ac.getMyIps();
+
+		StreamExecutionEnvironment senv = StreamExecutionEnvironment.getExecutionEnvironment();
+		senv.setParallelism(3);
+		senv.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+
+		final List<NMAJSONData> input = new ArrayList<NMAJSONData>();
+		final List<NMAJSONData> anomalies = new ArrayList<NMAJSONData>();
+
+		input.clear();
+		anomalies.clear();
+		int streamLimit = 2600;
+		int inputElements = 1000;
+		Stream<NMAJSONData> generateInfiniteStream = NMAJSONDataGenerator.generateInfiniteStream(myIps);
+		generateInfiniteStream.limit(inputElements).forEach(data -> {
+			if (data.getClass().equals(NMAJSONDataGenerator.NMAJSONDataAnomaly.class)) {
+				anomalies.add(data);
+			}
+			input.add(data);
+		});
+		NMAJSONData anomaly = NMAJSONDataGenerator.generateAnomaly(myIps);
+		anomalies.add(anomaly);
+		input.add(anomaly);
+		
+		Assert.assertTrue(anomalies.size() >0);
+
+		DataStream<NMAJSONData> source = senv.fromCollection(input);
+
+
+		int lengthOption = streamLimit;
+		Tuple2<Integer, Double> bestClusterSize = null;
+		for (int numClustersOption = 1; numClustersOption < 6; numClustersOption++) {
+			StreamKM defaultStreamKM = AnomalyReader.generateStreamKM(lengthOption, numClustersOption);
+			Stream<NMAJSONData> stream = NMAJSONDataGenerator.generateInfiniteStreamNoAnomaly(myIps).limit(streamLimit);
+			AnomalyReader.trainStreamKM(stream);
+			SingleOutputStreamOperator<Tuple3<NMAJSONData, Double, Cluster>> datasource = AnomalyReader.processSource(senv,	source);
+
+			CollectSink sink = new CollectSink(input, anomalies);
+			CollectSink.clear();
+			datasource.addSink(sink);
+			senv.execute();
+//			System.err.println(sink.toAnomalyString());
+//			System.err.println(sink.toFalseEvaluationString());
+//			System.err.println(sink.toSensibilityString());
+			
+			Assert.assertTrue(anomalies.size() >0);				
+			
+			Assert.assertEquals(input.size(), sink.getInputSize());
+			Assert.assertEquals(anomalies.size(), sink.getAnomalySize());
+			Assert.assertEquals(sink.values.size(), sink.getFindingSize());
+			Assert.assertEquals(100 * anomalies.size()/input.size(), sink.getAnomalyPercentage(), 1);
+			
+			double sensibility = sink.getSensibility();
+			LOG.info("ClusterSize: "+Tuple2.of(numClustersOption, sensibility));
+			if (bestClusterSize == null || sensibility > bestClusterSize.f1) {
+				bestClusterSize = Tuple2.of(numClustersOption, sensibility);
+			}
+			 
+		}
+		System.err.println("bestClusterSize: "+bestClusterSize);
+
+
+
+
+	}	
+
+	
+	@Test
+	public void testProcessSourceXLSX() throws Exception {
+		CollectSink.clear();
+
+		AppConfiguration ac = new AppConfiguration(new String[0]);
+		Set<String> myIps = ac.getMyIps();
+
+		StreamExecutionEnvironment senv = StreamExecutionEnvironment.getExecutionEnvironment();
+		senv.setParallelism(3);
+		senv.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+
+		final List<NMAJSONData> iterable = new ArrayList<NMAJSONData>();
+
+		iterable.clear();
+		int streamLimit = 2600;
+
+
+		ArrayList<NMAJSONData> readCSV = TestUtilities.readCSV("metrics_23-03-ordered.csv");
+		DataStream<NMAJSONData> source = senv.fromCollection(readCSV);
+
 
 		int lengthOption = streamLimit;
 		int numClustersOption = 1;
@@ -92,35 +240,15 @@ public class AnomalyReaderTest {
 
 		for (Tuple3<NMAJSONData, Double, Cluster> t : sink.values) {
 			finding.add(t.f0);
+			LOG.warn("** ANOMALY ** :: " + t.f0.toString());
 		}
 
 
-		if (anomalies.size() > 0) {
-			
-//			Assert.assertTrue((anomalies.size() * 1.3) >= finding.size());
-//			Assert.assertTrue((finding.size() * 1.3) >= anomalies.size());
-			
-			ArrayList correctPrediction = new ArrayList(CollectionUtils.intersection(anomalies, finding));
 
-			for (Object prediction : correctPrediction) {
-				LOG.info("*** PREDICTION *** " + prediction);
-			}			
-			Assert.assertTrue((correctPrediction.size() / anomalies.size()) >= 0.1);
-			Assert.assertTrue((correctPrediction.size() / anomalies.size()) >= 0.2);
-			Assert.assertTrue((correctPrediction.size() / anomalies.size()) >= 0.3);
-			Assert.assertTrue((correctPrediction.size() / anomalies.size()) >= 0.4);
-			Assert.assertTrue((correctPrediction.size() / anomalies.size()) >= 0.5);
-			Assert.assertTrue((correctPrediction.size() / anomalies.size()) >= 0.6);
-			Assert.assertTrue((correctPrediction.size() / anomalies.size()) >= 0.7);
-			Assert.assertTrue((correctPrediction.size() / anomalies.size()) >= 0.8);
-			Assert.assertTrue((correctPrediction.size() / anomalies.size()) >= 0.9);
-			// verify your results
-			Assert.assertEquals(anomalies.size(), correctPrediction.size());			
-		}
 
 
 	}
-
+	
 	@Test
 	public void testTrainingFromXlsx() throws Exception {
 
@@ -243,15 +371,140 @@ public class AnomalyReaderTest {
 	}	
 
 	private static class CollectSink implements SinkFunction<Tuple3<NMAJSONData, Double, Cluster>> {
-
+		
+		private List<NMAJSONData> input = null;
+		private List<NMAJSONData> anomalies = null;
+		private static Collection<NMAJSONData> finding = Collections.synchronizedList(new ArrayList<NMAJSONData>());
 		// must be static
-		public static final List<Tuple3<NMAJSONData, Double, Cluster>> values = Collections
-				.synchronizedList(new ArrayList<Tuple3<NMAJSONData, Double, Cluster>>());
+		public static final List<Tuple3<NMAJSONData, Double, Cluster>> values = Collections.synchronizedList(new ArrayList<Tuple3<NMAJSONData, Double, Cluster>>());
+
+
+		public static void clear() {
+			values.clear();
+			finding.clear();
+		}
+		public CollectSink(List<NMAJSONData> input, List<NMAJSONData> anomalies) {
+			super();
+			this.input = input;
+			this.anomalies = anomalies;
+		}
+		
+
+
+
+		public CollectSink() {
+			super();
+		}
+
+
+
 
 		@Override
 		public void invoke(Tuple3<NMAJSONData, Double, Cluster> value) throws Exception {
-			LOG.info("sink invoke: " + value);
+			finding.add(value.f0);
 			values.add(value);
+		}
+		
+		public String toAnomalyString() {
+			return anomalies == null ? null : "%ANOMALY: "+getAnomalyPercentage() +" [ #INPUT: "+getInputSize() + " #ANOMALY: "+getAnomalySize()+" ]";
+		}
+		
+		public String toSensibilityString() {
+			return anomalies == null ? null : "SENSIBILITY: "+getSensibility() + " [ %FN: "+getFalseNegativePercentage()+", %FP: "+getFalsePositivePercentage()+", AN/IN: "+getAnomalyPercentage()+"% ]";
+		}
+
+		public String toFalseEvaluationString() {
+			return anomalies == null ? null : "FALSE EVALUATION: "+getFalseEvaluation() + " [ FN: "+getFalseNegativeSize()+", FP: "+getFalsePositiveSize()+" ]";
+		}
+		
+		public String toString() {
+			return "#INPUT: "+getInputSize() + " #ANOMALY: "+getAnomalySize() + " #FINDING: "+getFindingSize()  ;
+		}		
+
+
+
+
+		public double getSensibility() {
+			int falseEvaluation = getFalseEvaluation();
+			if (falseEvaluation == 0)
+				return 1d;
+			double sensibility = (double) getAnomalySize() / (double)falseEvaluation;
+			return sensibility;
+		}
+
+
+
+
+		private int getFalseEvaluation() {
+			return getFalseNegativeSize() + getFalsePositiveSize();
+		}
+
+
+
+
+		public int getFalsePositivePercentage() {
+			return getAnomalySize() == 0 ? 0 : Math.round(100 * getFalsePositiveSize() / getAnomalySize()) ;
+		}
+
+
+
+
+		public int getFalseNegativePercentage() {
+			return getAnomalySize() == 0 ? 0 : Math.round(100 * getFalseNegativeSize() / getAnomalySize()) ;
+		}
+
+
+
+
+		public int getFalsePositiveSize() {
+			return getAnomalySize() == 0 ? 0 : Math.max(0, getFindingSize() - getCorrectPredictionSize());
+		}
+
+
+
+
+		public int getFalseNegativeSize() {
+			return getAnomalySize() == 0 ? 0 : Math.max(0,getAnomalySize() - getCorrectPredictionSize());
+		}
+
+
+
+
+		public int getAnomalyPercentage() {
+			return getAnomalySize() == 0 ? 0 : 100 * getAnomalySize() / getInputSize();
+		}
+
+
+		public int getInputSize() {
+			return input == null ? 0 : input.size();
+		}
+
+
+		public int getFindingSize() {
+			return finding == null ? 0 : finding.size();
+		}
+
+
+		public int getAnomalySize() {
+			return anomalies == null ? 0 : anomalies.size();
+		}
+
+
+		public int getCorrectPredictionSize() {
+			if (anomalies == null || finding == null)
+				return 0;
+			ArrayList correctPrediction = getCorrectPrediction();
+			int correctPredictionSize = correctPrediction.size();
+			return correctPredictionSize;
+		}
+
+
+
+
+		public ArrayList getCorrectPrediction() {
+			if (anomalies == null || finding == null)
+				return new ArrayList();
+			return new ArrayList(CollectionUtils.intersection(anomalies, finding));
 		}
 	}
 }
