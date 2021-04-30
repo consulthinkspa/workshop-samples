@@ -130,6 +130,7 @@ distributions {
     publishing {
        repositories {
            maven {
+               name "SDPLocal"
                credentials {
                    username System.getenv("MAVEN_USER")
                    password System.getenv("MAVEN_PASSWORD")

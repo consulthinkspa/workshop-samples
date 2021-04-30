@@ -53,18 +53,6 @@ subprojects {
         	name "TUDeleft"
         	url "https://simulation.tudelft.nl/maven/"
         }       
-        
-        
-        
-        maven {
-        	name "SDP Local"
-            credentials {
-                username System.getenv("MAVEN_USER")
-                password System.getenv("MAVEN_PASSWORD")
-            }
-            url projectRepoUrl
-        }  
-              
     }
 
 }
