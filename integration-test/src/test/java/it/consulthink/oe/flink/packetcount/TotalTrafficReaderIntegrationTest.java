@@ -69,7 +69,7 @@ public class TotalTrafficReaderIntegrationTest {
   		AppConfiguration appConfiguration = new AppConfiguration( args );  
   		
   		LOG.info("Starting NMAJSONInfiniteWriter...");
-  		NMAJSONInfiniteWriter generator = new NMAJSONInfiniteWriter(appConfiguration, 1l);
+  		NMAJSONInfiniteWriter generator = new NMAJSONInfiniteWriter(appConfiguration, 100l);
   		Thread thread = new Thread(generator);
   		thread.start();
   		Thread.sleep(3 * 1000);
