@@ -18,10 +18,11 @@ import org.slf4j.LoggerFactory;
 import com.dellemc.oe.util.AppConfiguration;
 
 import it.consulthink.oe.ingest.NMAJSONInfiniteWriter;
+import it.consulthink.oe.readers.TotalTrafficReaderToInflux;
 import junit.framework.Assert;
 
 public class TotalTrafficReaderIntegrationTest {
-	public static final String DOCKER_COMPOSE_YML = "docker-compose-pravega.yml";
+	public static final String DOCKER_COMPOSE_YML = "docker-compose.yml";
 
 	private static final Logger LOG = LoggerFactory.getLogger(TotalTrafficReaderIntegrationTest.class);
 
@@ -42,10 +43,10 @@ public class TotalTrafficReaderIntegrationTest {
 	public static boolean isWindows() {
 		return getOsName().startsWith("Windows");
 	}
-
+	
 	@Test
-	public void testRun() throws IOException, InterruptedException {
-		LOG.info("Starting TotalTrafficReaderIntegrationTest...");
+	public void testRun1() throws IOException, InterruptedException {
+		LOG.info("Starting testRun1 TotalTrafficReaderIntegrationTest...");
 
 
         String scope = "integration-test";
@@ -53,11 +54,10 @@ public class TotalTrafficReaderIntegrationTest {
 		String inputStreamName = "nma-input";
 		String outputStreamName = "total-traffic";
 		String controllerUri = "tcp://host.docker.internal:9090";
-		String[] args = {
+		String[] argsInfiniteWriter = {
           	  "--myIps", myIp,
       		  "--scope", scope,
       		  "--input-stream", inputStreamName,
-      		  "--output-stream", outputStreamName,
       		  "--controller", controllerUri,
       		  "--input-targetRate", "150",
       		  "--input-scaleFactor", "1",
@@ -66,17 +66,139 @@ public class TotalTrafficReaderIntegrationTest {
       		  "--output-scaleFactor", "3",
       		  "--output-minNumSegments", "4"      		  
           };
-  		AppConfiguration appConfiguration = new AppConfiguration( args );  
   		
-  		LOG.info("Starting NMAJSONInfiniteWriter...");
-  		NMAJSONInfiniteWriter generator = new NMAJSONInfiniteWriter(appConfiguration, 100l);
-  		Thread thread = new Thread(generator);
-  		thread.start();
+  		LOG.info("Starting Thread NMAJSONInfiniteWriter...");
+  		NMAJSONInfiniteWriter generator = new NMAJSONInfiniteWriter(new AppConfiguration( argsInfiniteWriter ), 1l);
+  		Thread threadGenerator = new Thread(generator);
+  		threadGenerator.start();
   		Thread.sleep(3 * 1000);
+  		
+		String[] argsTotalTrafficReader = {
+	          	  "--myIps", myIp,
+	      		  "--scope", scope,
+	      		  "--input-stream", inputStreamName,
+	      		  "--output-stream", outputStreamName,
+	      		  "--controller", controllerUri,
+	      		  "--input-targetRate", "150",
+	      		  "--input-scaleFactor", "1",
+	      		  "--input-minNumSegments", "1",
+	      		  "--output-targetRate", "150",
+	      		  "--output-scaleFactor", "3",
+	      		  "--output-minNumSegments", "4"      		  
+	          };
  
-  		LOG.info("Starting TotalTrafficReader...");
-        TotalTrafficReader reader = new TotalTrafficReader(appConfiguration);
+  		LOG.info("Starting Thread TotalTrafficReader...");
+        TotalTrafficReader reader = new TotalTrafficReader(new AppConfiguration( argsTotalTrafficReader ));
         reader.run();
+
+        
+	}
+	
+	@Test
+	public void testRun2() throws IOException, InterruptedException {
+		LOG.info("Starting testRun2 TotalTrafficReaderIntegrationTest...");
+
+
+        String scope = "integration-test";
+		String myIp = "213.61.202.114,213.61.202.115,213.61.202.116,213.61.202.117,213.61.202.118,213.61.202.119,213.61.202.120,213.61.202.121,213.61.202.122,213.61.202.123,213.61.202.124,213.61.202.125,213.61.202.126";
+		String inputStreamName = "nma-input";
+		String outputStreamName = "total-traffic";
+		String controllerUri = "tcp://host.docker.internal:9090";
+		
+        
+		String[] argsTotalTrafficReaderToInflux = {
+				
+	          	  "--myIps", myIp,
+	      		  "--scope", scope,
+	      		  "--input-stream", outputStreamName,
+	      		  "--controller", controllerUri,
+	      		  "--input-targetRate", "150",
+	      		  "--input-scaleFactor", "1",
+	      		  "--input-minNumSegments", "1",
+	      		  "--output-targetRate", "150",
+	      		  "--output-scaleFactor", "3",
+	      		  "--output-minNumSegments", "4"      		  
+	          };
+        
+  		LOG.info("Starting Thread TotalTrafficReaderToInflux...");
+  		TotalTrafficReaderToInflux writer = new TotalTrafficReaderToInflux(new AppConfiguration( argsTotalTrafficReaderToInflux ));
+  		writer.run();
+//  		Thread threadWriter= new Thread(writer);
+//        threadWriter.start();
+//        Thread.sleep(10 * 1000);
+        
+	}
+
+	@Test
+	public void testRun3() throws IOException, InterruptedException {
+		LOG.info("Starting testRun3 TotalTrafficReaderIntegrationTest...");
+
+
+        String scope = "integration-test";
+		String myIp = "213.61.202.114,213.61.202.115,213.61.202.116,213.61.202.117,213.61.202.118,213.61.202.119,213.61.202.120,213.61.202.121,213.61.202.122,213.61.202.123,213.61.202.124,213.61.202.125,213.61.202.126";
+		String inputStreamName = "nma-input";
+		String outputStreamName = "total-traffic";
+		String controllerUri = "tcp://host.docker.internal:9090";
+		String[] argsInfiniteWriter = {
+          	  "--myIps", myIp,
+      		  "--scope", scope,
+      		  "--input-stream", inputStreamName,
+      		  "--controller", controllerUri,
+      		  "--input-targetRate", "150",
+      		  "--input-scaleFactor", "1",
+      		  "--input-minNumSegments", "1",
+      		  "--output-targetRate", "150",
+      		  "--output-scaleFactor", "3",
+      		  "--output-minNumSegments", "4"      		  
+          };
+  		
+  		LOG.info("Starting Thread NMAJSONInfiniteWriter...");
+  		NMAJSONInfiniteWriter generator = new NMAJSONInfiniteWriter(new AppConfiguration( argsInfiniteWriter ), 1l);
+  		Thread threadGenerator = new Thread(generator);
+  		threadGenerator.start();
+  		Thread.sleep(3 * 1000);
+  		
+		String[] argsTotalTrafficReader = {
+	          	  "--myIps", myIp,
+	      		  "--scope", scope,
+	      		  "--input-stream", inputStreamName,
+	      		  "--output-stream", outputStreamName,
+	      		  "--controller", controllerUri,
+	      		  "--input-targetRate", "150",
+	      		  "--input-scaleFactor", "1",
+	      		  "--input-minNumSegments", "1",
+	      		  "--output-targetRate", "150",
+	      		  "--output-scaleFactor", "3",
+	      		  "--output-minNumSegments", "4"      		  
+	          };
+ 
+  		LOG.info("Starting Thread TotalTrafficReader...");
+        TotalTrafficReader reader = new TotalTrafficReader(new AppConfiguration( argsTotalTrafficReader ));
+        Thread threadReader = new Thread(reader);
+        threadReader.start();
+        Thread.sleep(10 * 1000);
+        
+		String[] argsTotalTrafficReaderToInflux = {
+				
+	          	  "--myIps", myIp,
+	      		  "--scope", scope,
+	      		  "--input-stream", outputStreamName,
+	      		  "--controller", controllerUri,
+	      		  "--input-targetRate", "150",
+	      		  "--input-scaleFactor", "1",
+	      		  "--input-minNumSegments", "1",
+	      		  "--output-targetRate", "150",
+	      		  "--output-scaleFactor", "3",
+	      		  "--output-minNumSegments", "4"      		  
+	          };
+        
+  		LOG.info("Starting Thread TotalTrafficReaderToInflux...");
+  		TotalTrafficReaderToInflux writer = new TotalTrafficReaderToInflux(new AppConfiguration( argsTotalTrafficReaderToInflux ));
+  		writer.run();
+//  		Thread threadWriter= new Thread(writer);
+//        threadWriter.start();
+//        Thread.sleep(10 * 1000);
+        
 	}
 
 	@BeforeClass

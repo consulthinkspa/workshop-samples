@@ -200,4 +200,17 @@ public class AppConfiguration {
             return minNumSegments;
         }
     }
+
+	@Override
+	public String toString() {
+		return "AppConfiguration [pravegaConfig=" + pravegaConfig + ", inputStreamConfig=" + inputStreamConfig
+				+ ", outputStreamConfig=" + outputStreamConfig + ", parallelism=" + parallelism
+				+ ", checkpointInterval=" + checkpointInterval + ", enableCheckpoint=" + enableCheckpoint
+				+ ", enableOperatorChaining=" + enableOperatorChaining + ", enableRebalance=" + enableRebalance
+				+ ", routingKey=" + routingKey + ", dataFile=" + dataFile + ", message=" + message + ", csvDir="
+				+ csvDir + ", myIps=" + myIps + ", influxdbUrl=" + influxdbUrl + ", influxdbVersion=" + influxdbVersion
+				+ ", influxdbUsername=" + influxdbUsername + ", influxdbPassword=" + influxdbPassword + ", influxdbDb="
+				+ influxdbDb + ", influxdbOrg=" + influxdbOrg + ", influxdbToken=" + influxdbToken + ", influxdbBucket="
+				+ influxdbBucket + "]";
+	}
 }

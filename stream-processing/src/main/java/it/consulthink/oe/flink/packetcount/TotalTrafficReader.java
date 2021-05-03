@@ -51,7 +51,7 @@ import it.consulthink.oe.model.NMAJSONData;
  *     controller - the Pravega controller URI, e.g., tcp://localhost:9090
  *                  Note that this parameter is automatically used by the PravegaConfig class
  */
-public class TotalTrafficReader extends AbstractApp {
+public class TotalTrafficReader extends AbstractApp{
 
     // Logger initialization
     private static final Logger LOG = LoggerFactory.getLogger(TotalTrafficReader.class);
@@ -64,7 +64,7 @@ public class TotalTrafficReader extends AbstractApp {
     }
 
     public void run(){
-    		LOG.info("Starting NMA TotalTrafficReader...");
+    	LOG.info("Run "+this.getClass().getName()+"...");
     	
         	StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         	
@@ -72,52 +72,43 @@ public class TotalTrafficReader extends AbstractApp {
 			String inputStreamName = inputStreamConfig.getStream().getStreamName();
 
 			//TODO controllare modifiche dell SDP
-//			createStream(inputStreamConfig);
+			createStream(inputStreamConfig);
 			LOG.info("============== input stream  =============== " + inputStreamName);
 			
             AppConfiguration.StreamConfig outputStreamConfig= appConfiguration.getOutputStreamConfig();
 			String outputStreamName = outputStreamConfig.getStream().getStreamName();
 
 			//TODO controllare modifiche dell SDP
-//			createStream(outputStreamConfig);
+			createStream(outputStreamConfig);
 			LOG.info("============== output stream  =============== " + outputStreamName);
             
             
             // Create EventStreamClientFactory
             PravegaConfig pravegaConfig = appConfiguration.getPravegaConfig();
-            LOG.info("============== Praevega  =============== " + pravegaConfig);
             
            
 			SourceFunction<NMAJSONData> sourceFunction = getSourceFunction(pravegaConfig, inputStreamName);
-            LOG.info("==============  SourceFunction  =============== " + sourceFunction);
             
-            DataStream<NMAJSONData> source = env.addSource(sourceFunction).name("InputSource");
-            LOG.info("==============  Source  =============== " + source);
+            DataStream<NMAJSONData> source = env.addSource(sourceFunction).name("Pravega."+inputStreamName);
             
 			SingleOutputStreamOperator<Tuple2<Date, Long>> dataStream = processSource(env, source);
 
-            dataStream.printToErr();
-            LOG.info("==============  ProcessSource - PRINTED  ===============");
+//            dataStream.printToErr();
             
 			
             
             FlinkPravegaWriter<Tuple2<Date, Long>> sink = getSinkFunction(pravegaConfig, outputStreamName);
-            
-            dataStream.addSink(sink).name("NMATotalTrafficStream");
+//            dataStream.printToErr();
+            dataStream.addSink(sink).name("Pravega."+outputStreamName);
 
-            // create another output sink to print to stdout for verification
-            dataStream.printToErr();
-            LOG.info("==============  ProcessSink - PRINTED  ===============");
-            
-            
-            
             // execute within the Flink environment
             try {
-				env.execute("TotalTrafficReader");
+				env.execute(this.getClass().getName());
 			} catch (Exception e) {
-				LOG.error("Error executing TotalTrafficReader...");	
+				LOG.error("Error executing "+this.getClass().getName()+"...",e);
+				throw new RuntimeException("Error executing "+this.getClass().getName()+"...",e);
 			}finally {
-				LOG.info("Ending NMA TotalTrafficReader...");	
+				LOG.info("Finally execute "+this.getClass().getName()+"...");	
 			}
 
             
@@ -175,6 +166,8 @@ public class TotalTrafficReader extends AbstractApp {
 		return source;
 	}
 	
+
+	
 	@SuppressWarnings("unchecked")
 	public static SingleOutputStreamOperator<Tuple2<Date, Long>> processSource(StreamExecutionEnvironment env, DataStream<NMAJSONData> source) {
         env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
@@ -219,7 +212,8 @@ public class TotalTrafficReader extends AbstractApp {
 		TupleSerializer<Tuple2> serializer = new TupleSerializer<Tuple2>(Tuple2.class,
 				new TypeSerializer[]{new DateSerializer(),new LongSerializer()});
 
-		TypeInformation<Tuple2> info = TypeInformation.of(new TypeHint<Tuple2>(){});
+		TypeInformation<Tuple2<Date,Long>> info = TypeInformation.of(new TypeHint<Tuple2<Date,Long>>(){});
+
 		
 		FlinkPravegaWriter<Tuple2<Date, Long>> sink = FlinkPravegaWriter.<Tuple2<Date, Long>>builder()
 		        .withPravegaConfig(pravegaConfig)
@@ -239,7 +233,7 @@ public class TotalTrafficReader extends AbstractApp {
 	}	
 
     public static void main(String[] args) throws Exception {
-        LOG.info("Starting TotalTrafficReader...");
+    	LOG.info("Main...");
         AppConfiguration appConfiguration = new AppConfiguration(args);
         TotalTrafficReader reader = new TotalTrafficReader(appConfiguration);
         reader.run();
