@@ -4,8 +4,15 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 import org.apache.flink.api.common.functions.ReduceFunction;
+import org.apache.flink.api.common.serialization.TypeInformationSerializationSchema;
+import org.apache.flink.api.common.typeinfo.TypeHint;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.api.common.typeutils.base.DateSerializer;
+import org.apache.flink.api.common.typeutils.base.LongSerializer;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.typeutils.runtime.TupleSerializer;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
@@ -63,12 +70,16 @@ public class TotalTrafficReader extends AbstractApp {
         	
             AppConfiguration.StreamConfig inputStreamConfig = appConfiguration.getInputStreamConfig();;
 			String inputStreamName = inputStreamConfig.getStream().getStreamName();
-			createStream(inputStreamConfig);
+
+			//TODO controllare modifiche dell SDP
+//			createStream(inputStreamConfig);
 			LOG.info("============== input stream  =============== " + inputStreamName);
 			
             AppConfiguration.StreamConfig outputStreamConfig= appConfiguration.getOutputStreamConfig();
 			String outputStreamName = outputStreamConfig.getStream().getStreamName();
-			createStream(outputStreamConfig);
+
+			//TODO controllare modifiche dell SDP
+//			createStream(outputStreamConfig);
 			LOG.info("============== output stream  =============== " + outputStreamName);
             
             
@@ -190,7 +201,7 @@ public class TotalTrafficReader extends AbstractApp {
 	}
 
 	public static BoundedOutOfOrdernessTimestampExtractor<NMAJSONData> getTimestampAndWatermarkAssigner() {
-		BoundedOutOfOrdernessTimestampExtractor<NMAJSONData> timestampAndWatermarkAssigner = new BoundedOutOfOrdernessTimestampExtractor<NMAJSONData>(Time.seconds(10)) {
+		BoundedOutOfOrdernessTimestampExtractor<NMAJSONData> timestampAndWatermarkAssigner = new BoundedOutOfOrdernessTimestampExtractor<NMAJSONData>(Time.seconds(2)) {
 
 		    @Override
 		    public long extractTimestamp(NMAJSONData element) {
@@ -200,10 +211,15 @@ public class TotalTrafficReader extends AbstractApp {
 		};
 		return timestampAndWatermarkAssigner;
 	}
-	
+
+
 	private FlinkPravegaWriter<Tuple2<Date, Long>> getSinkFunction(PravegaConfig pravegaConfig, String outputStreamName) {
 		SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd");
-		
+
+		TupleSerializer<Tuple2> serializer = new TupleSerializer<Tuple2>(Tuple2.class,
+				new TypeSerializer[]{new DateSerializer(),new LongSerializer()});
+
+		TypeInformation<Tuple2> info = TypeInformation.of(new TypeHint<Tuple2>(){});
 		
 		FlinkPravegaWriter<Tuple2<Date, Long>> sink = FlinkPravegaWriter.<Tuple2<Date, Long>>builder()
 		        .withPravegaConfig(pravegaConfig)
@@ -217,7 +233,7 @@ public class TotalTrafficReader extends AbstractApp {
 
 		        	
 				})
-                .withSerializationSchema(new JsonSerializationSchema<Tuple2<Date, Long>>())
+                .withSerializationSchema((TypeInformationSerializationSchema<Tuple2<Date,Long>>) new TypeInformationSerializationSchema(info, serializer ))
 		        .build();
 		return sink;
 	}	

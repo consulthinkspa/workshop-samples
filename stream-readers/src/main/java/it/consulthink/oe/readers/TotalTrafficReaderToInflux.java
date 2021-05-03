@@ -1,10 +1,24 @@
 package it.consulthink.oe.readers;
 
+import java.lang.reflect.Type;
 import java.util.Date;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.serialization.TypeInformationSerializationSchema;
+import org.apache.flink.api.common.typeinfo.TypeHint;
+import org.apache.flink.api.common.typeinfo.TypeInfo;
+import org.apache.flink.api.common.typeinfo.TypeInfoFactory;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.api.common.typeutils.base.DateSerializer;
+import org.apache.flink.api.common.typeutils.base.LongSerializer;
 import org.apache.flink.api.java.tuple.Tuple;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.typeutils.PojoTypeInfo;
+import org.apache.flink.api.java.typeutils.TupleTypeInfo;
+import org.apache.flink.api.java.typeutils.runtime.TupleSerializer;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.KeyedStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -54,7 +68,7 @@ public class TotalTrafficReaderToInflux extends AbstractApp {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
 		AppConfiguration.StreamConfig inputStreamConfig = appConfiguration.getInputStreamConfig();
-		;
+
 		String inputStreamName = inputStreamConfig.getStream().getStreamName();
 		createStream(inputStreamConfig);
 		LOG.info("============== input stream  =============== " + inputStreamName);
@@ -156,16 +170,30 @@ public class TotalTrafficReaderToInflux extends AbstractApp {
 		return sink;
 	}	
 
+	//TODO TESTARE SU DELL SDP
 
 	@SuppressWarnings("unchecked")
 	private FlinkPravegaReader<Tuple2<Date, Long>> getSourceFunction(PravegaConfig pravegaConfig,
 			String inputStreamName) {
+
+
+		TupleSerializer<Tuple2> serializer = new TupleSerializer<Tuple2>(Tuple2.class,
+				new TypeSerializer[]{new DateSerializer(),new LongSerializer()});
+
+		TypeInformation<Tuple2> info = TypeInformation.of(new TypeHint<Tuple2>(){});
+
+
 		// create the Pravega source to read a stream of text
 		FlinkPravegaReader<Tuple2<Date, Long>> source = FlinkPravegaReader.builder().withPravegaConfig(pravegaConfig)
-				.forStream(inputStreamName).withDeserializationSchema(new JsonDeserializationSchema(Tuple2.class))
+				.forStream(inputStreamName).withDeserializationSchema(
+						new TypeInformationSerializationSchema( info, serializer ))
 				.build();
 		return source;
 	}
+
+
+
+
 
 	public static void main(String[] args) throws Exception {
 		LOG.info("Starting TotalTrafficReaderToInflux...");
