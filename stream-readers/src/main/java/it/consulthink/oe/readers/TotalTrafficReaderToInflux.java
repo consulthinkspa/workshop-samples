@@ -120,13 +120,14 @@ public class TotalTrafficReaderToInflux extends AbstractApp {
 			@Override
 			public void invoke(Tuple2<Date, Long> value) {
 				try {
+					LOG.info("TO INFLUX_1: "+ value);
 					getInfluxDB()
 							.write(org.influxdb.dto.Point.measurement(inputStreamName)
 									.time(value.f0.getTime(), TimeUnit.MILLISECONDS)
 									.addField("value", value.f1)
 									.build());
-				} catch (Exception e) {
-					LOG.error("Error on TotalTraffic " + value, e);
+				} catch (Throwable e) {
+					LOG.error("Error on TotalTraffic INFLUX_1 " + value, e);
 				}
 
 			}
@@ -141,16 +142,32 @@ public class TotalTrafficReaderToInflux extends AbstractApp {
 
 			@Override
 			public void invoke(Tuple2<Date, Long> value) {
-		        try (WriteApi writeApi = getInfluxDB().getWriteApi()) {
-
+//				LOG.info("TO INFLUX_2: "+ value);
+//		        try (WriteApi writeApi = getInfluxDB().getWriteApi()) {
+//
+//		        	com.influxdb.client.write.Point point = com.influxdb.client.write.Point.measurement(inputStreamName)
+//		                    .addField("value", value.f1)
+//		                    .addTag("class", TotalTrafficReaderToInflux.class.getSimpleName())
+//		                    .time(value.f0.getTime(), WritePrecision.MS);
+//
+//		            writeApi.writePoint(point);
+//		        }	
+		        
+				try {
+				LOG.info("TO INFLUX_2: "+ value);
+		        	WriteApi writeApi = getInfluxDB().getWriteApi();
 		        	com.influxdb.client.write.Point point = com.influxdb.client.write.Point.measurement(inputStreamName)
 		                    .addField("value", value.f1)
 		                    .addTag("class", TotalTrafficReaderToInflux.class.getSimpleName())
 		                    .time(value.f0.getTime(), WritePrecision.MS);
 
 		            writeApi.writePoint(point);
-		        }					
+				} catch (Throwable e) {
+					LOG.error("Error on TotalTraffic INFLUX_2 " + value, e);
+				}
 			}
+			
+
 
 		};
 		return sink;
