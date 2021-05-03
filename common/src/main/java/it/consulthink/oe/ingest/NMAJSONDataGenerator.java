@@ -44,8 +44,8 @@ public class NMAJSONDataGenerator {
 
 	public static final Random r = new Random(System.currentTimeMillis());
 	
-	public static final HashMap<String, Long> ips = new HashMap<String, Long>();
-	public static final HashMap<String, Long> ipsLocal = new HashMap<String, Long>();
+	private static final HashMap<String, Long> ips = new HashMap<String, Long>();
+	private static final HashMap<String, Long> ipsLocal = new HashMap<String, Long>();
 	
 	private static String generateWellKnownPort() {
 		boolean isWebPort = r.nextInt(2) == 0;
@@ -109,7 +109,7 @@ public class NMAJSONDataGenerator {
 		return Math.max(Math.min(result, MAX_PACKETS_OUT),0);	
 	}	
 	
-	private static String generateRandomLocalIP() {
+	private synchronized static String generateRandomLocalIP() {
 		String result = null; 
 		if (ipsLocal.size() == 0 || r.nextInt(50) == 0) {
 			result = 10 + "." + 10 + "." + 10 + "." + r.nextInt(256);
@@ -133,7 +133,7 @@ public class NMAJSONDataGenerator {
 		return result;
 	}	
 	
-	private static String generateRandomIP() {
+	private synchronized static String generateRandomIP() {
 		String result = null; 
 		if (ips.size() == 0 || r.nextInt(3) == 0) {
 			result = r.nextInt(256) + "." + r.nextInt(256) + "." + r.nextInt(256) + "." + r.nextInt(256);
