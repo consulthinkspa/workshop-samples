@@ -1,33 +1,28 @@
 package it.consulthink.oe.readers;
 
-import java.lang.reflect.Type;
 import java.util.Date;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.functions.ReduceFunction;
 import org.apache.flink.api.common.serialization.TypeInformationSerializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeHint;
-import org.apache.flink.api.common.typeinfo.TypeInfo;
-import org.apache.flink.api.common.typeinfo.TypeInfoFactory;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.base.DateSerializer;
 import org.apache.flink.api.common.typeutils.base.LongSerializer;
-import org.apache.flink.api.java.tuple.Tuple;
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.api.java.typeutils.PojoTypeInfo;
-import org.apache.flink.api.java.typeutils.TupleTypeInfo;
 import org.apache.flink.api.java.typeutils.runtime.TupleSerializer;
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.datastream.KeyedStream;
+import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
+import org.apache.flink.streaming.api.functions.timestamps.BoundedOutOfOrdernessTimestampExtractor;
+import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
+import org.apache.flink.streaming.api.windowing.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.dellemc.oe.serialization.JsonDeserializationSchema;
 import com.dellemc.oe.util.AbstractApp;
 import com.dellemc.oe.util.AppConfiguration;
 import com.influxdb.client.WriteApi;
@@ -37,6 +32,7 @@ import io.pravega.connectors.flink.FlinkPravegaReader;
 import io.pravega.connectors.flink.PravegaConfig;
 import it.consulthink.oe.db.InfluxDB2Sink;
 import it.consulthink.oe.db.InfluxDBSink;
+import it.consulthink.oe.model.NMAJSONData;
 
 /*
  * At a high level, TotalTrafficReader reads from a Pravega stream, and prints
@@ -50,7 +46,7 @@ import it.consulthink.oe.db.InfluxDBSink;
  *     controller - the Pravega controller URI, e.g., tcp://localhost:9090
  *                  Note that this parameter is automatically used by the PravegaConfig class
  */
-public class TotalTrafficReaderToInflux extends AbstractApp {
+public class TotalTrafficReaderToInflux extends AbstractApp{
 
 	// Logger initialization
 	private static final Logger LOG = LoggerFactory.getLogger(TotalTrafficReaderToInflux.class);
@@ -61,9 +57,22 @@ public class TotalTrafficReaderToInflux extends AbstractApp {
 	public TotalTrafficReaderToInflux(AppConfiguration appConfiguration) {
 		super(appConfiguration);
 	}
+	
+	public static BoundedOutOfOrdernessTimestampExtractor<Tuple2<Date, Long>> getTimestampAndWatermarkAssigner() {
+		BoundedOutOfOrdernessTimestampExtractor<Tuple2<Date, Long>> timestampAndWatermarkAssigner = new BoundedOutOfOrdernessTimestampExtractor<Tuple2<Date, Long>>(Time.seconds(2)) {
+
+		    @Override
+		    public long extractTimestamp(Tuple2<Date, Long> element) {
+		        return element.f0.getTime();
+		    }
+			
+		};
+		return timestampAndWatermarkAssigner;
+	}
+
 
 	public void run() {
-		LOG.info("Starting NMA TotalTrafficReaderToInflux...");
+		LOG.info("Run "+this.getClass().getName()+"...");
 
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
@@ -75,16 +84,30 @@ public class TotalTrafficReaderToInflux extends AbstractApp {
 
 		// Create EventStreamClientFactory
 		PravegaConfig pravegaConfig = appConfiguration.getPravegaConfig();
-		LOG.info("============== Praevega  =============== " + pravegaConfig);
 
 		SourceFunction<Tuple2<Date, Long>> sourceFunction = getSourceFunction(pravegaConfig, inputStreamName);
-		LOG.info("==============  SourceFunction  =============== " + sourceFunction);
 
-		DataStream<Tuple2<Date, Long>> source = env.addSource(sourceFunction).name("InputSource");
-		KeyedStream<Tuple2<Date, Long>, Tuple> dataStream = source.keyBy(0);
-		LOG.info("==============  Source  =============== " + source);
-
-		LOG.info("==============  ProcessSource - PRINTED  ===============");
+		DataStream<Tuple2<Date, Long>> source = env.addSource(sourceFunction).name("Pravega."+inputStreamName);
+		
+		BoundedOutOfOrdernessTimestampExtractor<Tuple2<Date, Long>> timestampAndWatermarkAssigner = getTimestampAndWatermarkAssigner();
+		
+		SingleOutputStreamOperator<Tuple2<Date, Long>> dataStream = source
+				.assignTimestampsAndWatermarks(timestampAndWatermarkAssigner)
+				.keyBy(0)
+				.windowAll(TumblingEventTimeWindows.of(Time.seconds(1)))
+				.reduce(new ReduceFunction<Tuple2<Date,Long>>() {
+					
+					@Override
+					public Tuple2<Date, Long> reduce(Tuple2<Date, Long> value1, Tuple2<Date, Long> value2) throws Exception {
+						LOG.info("Reduce "+value1 +" "+value2);
+						if (value1.f0.equals(value2.f0)) {
+							return Tuple2.of(value1.f0,value1.f1 + value2.f1);
+						}else {
+							throw new RuntimeException();
+						}
+						
+					}
+				});
 
 		String influxdbUrl = appConfiguration.getInfluxdbUrl();
 		
@@ -108,21 +131,23 @@ public class TotalTrafficReaderToInflux extends AbstractApp {
 		}else {
 			sink = getSink2(inputStreamName, influxdbUrl, org, token, bucket);
 		}
+		
+		
 
-		dataStream.addSink(sink).name("InfluxTotalTrafficStream");
+//		dataStream.printToErr();
+		dataStream.addSink(sink).name("Influx."+inputStreamName);
 
-		// create another output sink to print to stdout for verification
-
-		LOG.info("==============  ProcessSink - PRINTED  ===============");
 
 		// execute within the Flink environment
-		try {
-			env.execute("TotalTrafficReader");
+        try {
+			env.execute(this.getClass().getName());
 		} catch (Exception e) {
-			LOG.error("Error executing TotalTrafficReader...");
-		} finally {
-			LOG.info("Ending NMA TotalTrafficReader...");
+			LOG.error("Error executing "+this.getClass().getName()+"...",e);
+			throw new RuntimeException("Error executing "+this.getClass().getName()+"...",e);
+		}finally {
+			LOG.info("Finally execute "+this.getClass().getName()+"...");	
 		}
+
 
 	}
 
@@ -197,7 +222,7 @@ public class TotalTrafficReaderToInflux extends AbstractApp {
 		TupleSerializer<Tuple2> serializer = new TupleSerializer<Tuple2>(Tuple2.class,
 				new TypeSerializer[]{new DateSerializer(),new LongSerializer()});
 
-		TypeInformation<Tuple2> info = TypeInformation.of(new TypeHint<Tuple2>(){});
+		TypeInformation<Tuple2<Date,Long>> info = TypeInformation.of(new TypeHint<Tuple2<Date,Long>>(){});
 
 
 		// create the Pravega source to read a stream of text
@@ -213,7 +238,7 @@ public class TotalTrafficReaderToInflux extends AbstractApp {
 
 
 	public static void main(String[] args) throws Exception {
-		LOG.info("Starting TotalTrafficReaderToInflux...");
+		LOG.info("Main...");
 		AppConfiguration appConfiguration = new AppConfiguration(args);
 		TotalTrafficReaderToInflux reader = new TotalTrafficReaderToInflux(appConfiguration);
 		reader.run();

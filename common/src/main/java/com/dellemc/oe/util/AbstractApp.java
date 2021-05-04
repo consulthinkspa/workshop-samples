@@ -32,6 +32,7 @@ public abstract class AbstractApp implements Runnable {
 
     public AbstractApp(AppConfiguration appConfiguration) {
         this.appConfiguration = appConfiguration;
+        LOG.info("AppConfiguration: "+this.appConfiguration);
     }
 
     public boolean createStream(AppConfiguration.StreamConfig streamConfig) {
