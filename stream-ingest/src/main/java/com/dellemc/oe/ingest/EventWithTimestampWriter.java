@@ -12,6 +12,7 @@ package com.dellemc.oe.ingest;
 import com.dellemc.oe.serialization.JsonNodeSerializer;
 import com.dellemc.oe.util.AppConfiguration;
 import com.dellemc.oe.util.Parameters;
+import com.dellemc.oe.util.AppConfiguration.StreamConfig;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -29,12 +30,14 @@ import java.net.URI;
 /**
  * A simple example app that uses a Pravega Writer to write to a given scope and stream.
  */
-public class EventWithTimestampWriter {
+public class EventWithTimestampWriter implements Runnable{
     // Logger initialization
     private static final Logger LOG = LoggerFactory.getLogger(JSONWriter.class);
-
-    public EventWithTimestampWriter() {
-
+    private AppConfiguration appConfiguration;
+    
+    public EventWithTimestampWriter(AppConfiguration appConfiguration) {
+    	this.appConfiguration = appConfiguration;
+    	LOG.info(this.getClass().getName()+".appConfiguration = "+this.appConfiguration);
     }
 
     // Create a JSON data for testing purpose
@@ -54,25 +57,20 @@ public class EventWithTimestampWriter {
     }
 
     public static void main(String[] args) {
-        AppConfiguration appConfiguration = new AppConfiguration(args);
-        EventWithTimestampWriter ew = new EventWithTimestampWriter();
+        EventWithTimestampWriter ew = new EventWithTimestampWriter(new AppConfiguration(args));
         ew.run();
     }
 
     public void run() {
        try{
-           URI controllerURI = Parameters.getControllerURI();
-           StreamManager streamManager = StreamManager.create(controllerURI);
-           String scope = Parameters.getScope();
-           String streamName = Parameters.getStreamName();
-           StreamConfiguration streamConfig = StreamConfiguration.builder()
-                   .scalingPolicy(ScalingPolicy.byEventRate(
-                           Parameters.getTargetRateEventsPerSec(), Parameters.getScaleFactor(), Parameters.getMinNumSegments()))
-                   .build();
-           streamManager.createStream(scope, streamName, streamConfig);
-
-           ClientConfig config = ClientConfig.builder().controllerURI(controllerURI)
-                   .credentials(null).trustStore("").build();
+           String scope = appConfiguration.getInputStreamConfig().getStream().getScope();
+           String streamName = appConfiguration.getInputStreamConfig().getStream().getStreamName();
+           ClientConfig config = appConfiguration.getPravegaConfig().getClientConfig();
+           
+			StreamConfig stream = appConfiguration.getInputStreamConfig();
+	        
+           boolean  streamok = AppConfiguration.createStream(appConfiguration, stream);
+           
            EventStreamClientFactory clientFactory = EventStreamClientFactory.withScope(scope, config);
            // Create  Pravega event writer
            EventStreamWriter<JsonNode> writer = clientFactory.createEventWriter(

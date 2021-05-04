@@ -33,34 +33,28 @@ public abstract class AbstractApp implements Runnable {
     public AbstractApp(AppConfiguration appConfiguration) {
         this.appConfiguration = appConfiguration;
         LOG.info("AppConfiguration: "+this.appConfiguration);
+//        try {
+//			initializeFlinkStreaming();
+//		} catch (Exception e) {
+//			LOG.error("Error on initializeFlinkStreaming",e);
+//		}
+//        try {
+//			initializeFlinkBatch();
+//		} catch (Exception e) {
+//			LOG.error("Error on initializeFlinkBatch",e);
+//		}
     }
 
     public boolean createStream(AppConfiguration.StreamConfig streamConfig) {
-        boolean result = false;
-        try(StreamManager streamManager = StreamManager.create(appConfiguration.getPravegaConfig().getClientConfig())) {
-        	if (!streamManager.checkScopeExists(streamConfig.getStream().getScope())) {
-        		streamManager.createScope(streamConfig.getStream().getScope());
-        	}
-            StreamConfiguration streamConfiguration = StreamConfiguration.builder()
-                    .scalingPolicy(ScalingPolicy.byDataRate(streamConfig.getTargetRate(), streamConfig.getScaleFactor(), streamConfig.getMinNumSegments()))
-                    .build();
-        	if (streamManager.checkStreamExists(streamConfig.getStream().getScope(), streamConfig.getStream().getStreamName())){
-//                result = streamManager.updateStream(streamConfig.getStream().getScope(), streamConfig.getStream().getStreamName(), streamConfiguration);        		
-        	}else {
-                result = streamManager.createStream(streamConfig.getStream().getScope(), streamConfig.getStream().getStreamName(), streamConfiguration);
-        	}
-
-            LOG.info("Creating Pravega Stream: " +" "+ streamConfig.getStream().getStreamName() +" "+ streamConfig.getStream().getScope() + streamConfiguration);
-        }
-        return result;
+    	return AppConfiguration.createStream(this.appConfiguration, streamConfig);
     }
     
 
-    public StreamInfo getStreamInfo(Stream stream) {
-        try(StreamManager streamManager = StreamManager.create(appConfiguration.getPravegaConfig().getClientConfig())) {
-            return streamManager.getStreamInfo(stream.getScope(), stream.getStreamName());
-        }
-    }
+//    public StreamInfo getStreamInfo(Stream stream) {
+//        try(StreamManager streamManager = StreamManager.create(appConfiguration.getPravegaConfig().getClientConfig())) {
+//            return streamManager.getStreamInfo(stream.getScope(), stream.getStreamName());
+//        }
+//    }
 
     public StreamExecutionEnvironment initializeFlinkStreaming() throws Exception {
         // Configure the Flink job environment

@@ -58,5 +58,14 @@ public class JsonSerializer<T> implements Serializer<T> {
         }
 
     }
+    
+    public byte[] serializeToByteArray(T o) {
+        try {
+            byte[] result = this.objectMapper.writeValueAsBytes(o);
+            return result;
+        } catch (Exception e) {
+            return null;
+        }
+    }
 
 }

@@ -14,27 +14,24 @@ import org.slf4j.LoggerFactory;
 import com.dellemc.oe.serialization.JsonSerializer;
 import com.dellemc.oe.util.AppConfiguration;
 import com.dellemc.oe.util.AppConfiguration.StreamConfig;
-import com.dellemc.oe.util.Parameters;
 
 import io.pravega.client.ClientConfig;
 import io.pravega.client.EventStreamClientFactory;
-import io.pravega.client.admin.StreamManager;
 import io.pravega.client.stream.EventStreamWriter;
 import io.pravega.client.stream.EventWriterConfig;
-import io.pravega.client.stream.ScalingPolicy;
-import io.pravega.client.stream.StreamConfiguration;
 import it.consulthink.oe.model.NMAJSONData;
+import it.consulthink.oe.model.TotalTraffic;
 
 /**
  * A simple example app that uses a Pravega Writer to write to a given scope and stream.
  */
-public class NMAJSONInfiniteWriter implements Runnable{
+public class TotalTrafficInfiniteWriter implements Runnable{
     // Logger initialization
-    private static final Logger LOG = LoggerFactory.getLogger(NMAJSONInfiniteWriter.class);
+    private static final Logger LOG = LoggerFactory.getLogger(TotalTrafficInfiniteWriter.class);
     private Long limit = null;
     AppConfiguration appConfiguration = null;
 
-    public NMAJSONInfiniteWriter(AppConfiguration appConfiguration, Long limit) {
+    public TotalTrafficInfiniteWriter(AppConfiguration appConfiguration, Long limit) {
     	this.appConfiguration = appConfiguration;
     	this.limit = limit;
     }
@@ -58,9 +55,10 @@ public class NMAJSONInfiniteWriter implements Runnable{
             
             EventStreamClientFactory clientFactory = EventStreamClientFactory.withScope(scope, config);
             // Create  Pravega event writer
+            
 
-            JsonSerializer<NMAJSONData> serializer = new JsonSerializer<NMAJSONData>(NMAJSONData.class);
-			EventStreamWriter<NMAJSONData> writer = clientFactory.createEventWriter(
+           JsonSerializer<TotalTraffic> serializer = new JsonSerializer<TotalTraffic>(TotalTraffic.class);
+		EventStreamWriter<TotalTraffic> writer = clientFactory.createEventWriter(
                     streamName,
                     serializer,
                     EventWriterConfig.builder().build());
@@ -78,13 +76,14 @@ public class NMAJSONInfiniteWriter implements Runnable{
 			.parallel()
 			.map(data -> {
 				CompletableFuture<Void> result = null;
+				TotalTraffic t = new TotalTraffic(data.getTime(), data.getBytesin() + data.getBytesout());
 				try {
-					System.err.println("Sending  "+data+ " >> " + new String(serializer.serializeToByteArray(data),  "UTF-8"));
-					result = writer.writeEvent(data);
+					System.err.println("Sending  "+t+ " >> " + new String(serializer.serializeToByteArray(t),  "UTF-8"));
+					result = writer.writeEvent(t);
 				} catch (Throwable e) {
-					LOG.error("Error Sending "+data+" " + e.getMessage());
+					LOG.error("Error Sending "+t+" " + e.getMessage());
 				}
-				return Tuple2.of(data, result);
+				return Tuple2.of(t, result);
 			})
 			.forEach(t -> {
 				try {
@@ -110,7 +109,7 @@ public class NMAJSONInfiniteWriter implements Runnable{
 				}
 			}
     	}
-        NMAJSONInfiniteWriter ew = new NMAJSONInfiniteWriter(new AppConfiguration(args), limit);
+        TotalTrafficInfiniteWriter ew = new TotalTrafficInfiniteWriter(new AppConfiguration(args), limit);
         ew.run();
     }
 }

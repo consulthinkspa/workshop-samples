@@ -55,6 +55,9 @@ public class WordCountReader extends AbstractApp {
 
     public void run(){
         try {
+        	
+        	initializeFlinkStreaming();
+        	
             AppConfiguration.StreamConfig streamConfig = appConfiguration.getInputStreamConfig();
             //  create stream
             createStream(appConfiguration.getInputStreamConfig());

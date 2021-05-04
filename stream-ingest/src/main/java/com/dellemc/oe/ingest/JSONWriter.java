@@ -11,6 +11,7 @@ package com.dellemc.oe.ingest;
 
 import com.dellemc.oe.serialization.JsonNodeSerializer;
 import com.dellemc.oe.util.*;
+import com.dellemc.oe.util.AppConfiguration.StreamConfig;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -30,30 +31,29 @@ import java.util.concurrent.CompletableFuture;
 /**
  * A simple example app that uses a Pravega Writer to write to a given scope and stream.
  */
-public class JSONWriter {
+public class JSONWriter implements Runnable{
     // Logger initialization
     private static final Logger LOG = LoggerFactory.getLogger(JSONWriter.class);
+	private AppConfiguration appConfiguration;
 
-    public JSONWriter() {
-
+    public JSONWriter(AppConfiguration appConfiguration) {
+    	this.appConfiguration = appConfiguration;
+    	LOG.info(this.getClass().getName()+".appConfiguration = "+this.appConfiguration);
     }
 
     public void run() {
 
         ObjectNode message = null;
         try {
-            URI controllerURI = Parameters.getControllerURI();
-            StreamManager streamManager = StreamManager.create(controllerURI);
-            String scope = Parameters.getScope();
-            String streamName = Parameters.getStreamName();
-            StreamConfiguration streamConfig = StreamConfiguration.builder()
-                    .scalingPolicy(ScalingPolicy.byEventRate(
-                            Parameters.getTargetRateEventsPerSec(), Parameters.getScaleFactor(), Parameters.getMinNumSegments()))
-                    .build();
-            streamManager.createStream(scope, streamName, streamConfig);
-
-            ClientConfig config = ClientConfig.builder().controllerURI(controllerURI)
-                    .credentials(null).trustStore("").build();
+        	
+            String scope = appConfiguration.getInputStreamConfig().getStream().getScope();
+            String streamName = appConfiguration.getInputStreamConfig().getStream().getStreamName();
+            ClientConfig config = appConfiguration.getPravegaConfig().getClientConfig();
+            
+			StreamConfig stream = appConfiguration.getInputStreamConfig();
+	        
+            boolean  streamok = AppConfiguration.createStream(appConfiguration, stream);
+        	
             EventStreamClientFactory clientFactory = EventStreamClientFactory.withScope(scope, config);
             // Create  Pravega event writer
             EventStreamWriter<JsonNode> writer = clientFactory.createEventWriter(
@@ -82,7 +82,7 @@ public class JSONWriter {
     }
     public static void main(String[] args) {
         // Get the Program parameters
-        JSONWriter ew = new JSONWriter();
+        JSONWriter ew = new JSONWriter(new AppConfiguration(args));
         ew.run();
     }
 }

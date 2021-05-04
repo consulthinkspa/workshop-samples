@@ -19,7 +19,10 @@ import org.apache.flink.api.java.utils.ParameterTool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.pravega.client.admin.StreamManager;
+import io.pravega.client.stream.ScalingPolicy;
 import io.pravega.client.stream.Stream;
+import io.pravega.client.stream.StreamConfiguration;
 import io.pravega.connectors.flink.PravegaConfig;
 
 // All parameters will come from environment variables. This makes it easy
@@ -51,6 +54,26 @@ public class AppConfiguration {
 	private String influxdbOrg = "it.consulthink";
     private String influxdbToken = "D1ARPWX51_G5fP93DI9TYB13cvP_E0qN4yzFDktafhpzXul2-ItLLqKben2qyzMnjkibyAd-ag4A14Iifrq95A==";
 	private String influxdbBucket = "nma";    
+	
+    public static boolean createStream(AppConfiguration appConfiguration, AppConfiguration.StreamConfig streamConfig) {
+        boolean result = false;
+        try(StreamManager streamManager = StreamManager.create(appConfiguration.getPravegaConfig().getClientConfig())) {
+        	if (!streamManager.checkScopeExists(streamConfig.getStream().getScope())) {
+        		streamManager.createScope(streamConfig.getStream().getScope());
+        	}
+            StreamConfiguration streamConfiguration = StreamConfiguration.builder()
+                    .scalingPolicy(ScalingPolicy.byDataRate(streamConfig.getTargetRate(), streamConfig.getScaleFactor(), streamConfig.getMinNumSegments()))
+                    .build();
+        	if (streamManager.checkStreamExists(streamConfig.getStream().getScope(), streamConfig.getStream().getStreamName())){
+//                result = streamManager.updateStream(streamConfig.getStream().getScope(), streamConfig.getStream().getStreamName(), streamConfiguration);        		
+        	}else {
+                result = streamManager.createStream(streamConfig.getStream().getScope(), streamConfig.getStream().getStreamName(), streamConfiguration);
+        	}
+
+            log.info("Creating Pravega Stream: " +" "+ streamConfig.getStream().getStreamName() +" "+ streamConfig.getStream().getScope() + streamConfiguration);
+        }
+        return result;
+    }
 
 	public AppConfiguration(String[] args) {
         ParameterTool params = ParameterTool.fromArgs(args);
@@ -199,6 +222,15 @@ public class AppConfiguration {
         public int getMinNumSegments() {
             return minNumSegments;
         }
+
+
+		@Override
+		public String toString() {
+			return "StreamConfig [stream=" + stream + ", targetRate=" + targetRate + ", scaleFactor=" + scaleFactor
+					+ ", minNumSegments=" + minNumSegments + "]";
+		}
+        
+        
     }
 
 	@Override

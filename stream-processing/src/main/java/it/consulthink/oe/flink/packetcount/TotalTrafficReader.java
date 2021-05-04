@@ -1,20 +1,13 @@
 package it.consulthink.oe.flink.packetcount;
 
+import java.io.UnsupportedEncodingException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-import org.apache.flink.api.common.functions.ReduceFunction;
-import org.apache.flink.api.common.serialization.TypeInformationSerializationSchema;
-import org.apache.flink.api.common.typeinfo.TypeHint;
-import org.apache.flink.api.common.typeinfo.TypeInformation;
-import org.apache.flink.api.common.typeutils.TypeSerializer;
-import org.apache.flink.api.common.typeutils.base.DateSerializer;
-import org.apache.flink.api.common.typeutils.base.LongSerializer;
-import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.api.java.typeutils.runtime.TupleSerializer;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
@@ -38,6 +31,7 @@ import io.pravega.connectors.flink.FlinkPravegaWriter;
 import io.pravega.connectors.flink.PravegaConfig;
 import io.pravega.connectors.flink.PravegaEventRouter;
 import it.consulthink.oe.model.NMAJSONData;
+import it.consulthink.oe.model.TotalTraffic;
 
 /*
  * At a high level, TotalTrafficReader reads from a Pravega stream, and prints
@@ -66,6 +60,13 @@ public class TotalTrafficReader extends AbstractApp{
     public void run(){
     	LOG.info("Run "+this.getClass().getName()+"...");
     	
+	      try {
+				initializeFlinkStreaming();
+			} catch (Exception e) {
+				LOG.error("Error on initializeFlinkStreaming",e);
+				throw new RuntimeException("Error on initializeFlinkStreaming",e);
+			}
+    	
         	StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         	
             AppConfiguration.StreamConfig inputStreamConfig = appConfiguration.getInputStreamConfig();;
@@ -91,15 +92,15 @@ public class TotalTrafficReader extends AbstractApp{
             
             DataStream<NMAJSONData> source = env.addSource(sourceFunction).name("Pravega."+inputStreamName);
             
-			SingleOutputStreamOperator<Tuple2<Date, Long>> dataStream = processSource(env, source);
+			SingleOutputStreamOperator<TotalTraffic> dataStream = processSource(env, source);
 
 //            dataStream.printToErr();
             
 			
             
-            FlinkPravegaWriter<Tuple2<Date, Long>> sink = getSinkFunction(pravegaConfig, outputStreamName);
-//            dataStream.printToErr();
-            dataStream.addSink(sink).name("Pravega."+outputStreamName);
+            FlinkPravegaWriter<TotalTraffic> sink = getSinkFunction(pravegaConfig, outputStreamName);
+            dataStream.printToErr();
+            DataStreamSink<TotalTraffic> dataStreamSink = dataStream.addSink(sink).name("Pravega."+outputStreamName);
 
             // execute within the Flink environment
             try {
@@ -135,15 +136,15 @@ public class TotalTrafficReader extends AbstractApp{
 		return sumBytes;
 	}
 	
-	public static ProcessWindowFunction<NMAJSONData, Tuple2<Date, Long>, Date, TimeWindow> getProcessFunction() {
-		ProcessWindowFunction<NMAJSONData, Tuple2<Date, Long>, Date, TimeWindow> sumBytes = new ProcessWindowFunction<NMAJSONData, Tuple2<Date, Long>, Date, TimeWindow>() {
+	public static ProcessWindowFunction<NMAJSONData, TotalTraffic, Date, TimeWindow> getProcessFunction() {
+		ProcessWindowFunction<NMAJSONData, TotalTraffic, Date, TimeWindow> sumBytes = new ProcessWindowFunction<NMAJSONData, TotalTraffic, Date, TimeWindow>() {
 
 			@Override
-			public void process(Date key,ProcessWindowFunction<NMAJSONData, Tuple2<Date, Long>, Date, TimeWindow>.Context ctx,Iterable<NMAJSONData> iterable, Collector<Tuple2<Date, Long>> collector) throws Exception {
+			public void process(Date key,ProcessWindowFunction<NMAJSONData, TotalTraffic, Date, TimeWindow>.Context ctx,Iterable<NMAJSONData> iterable, Collector<TotalTraffic> collector) throws Exception {
 				for (NMAJSONData element : iterable) {
 					long totalTraffic = element.getBytesin() + element.getBytesout();
 					LOG.info("Collecting: "+totalTraffic+" FROM "+element);
-					collector.collect(Tuple2.of(key, totalTraffic));
+					collector.collect(new TotalTraffic(key, totalTraffic));
 				}
 			}
 
@@ -169,23 +170,23 @@ public class TotalTrafficReader extends AbstractApp{
 
 	
 	@SuppressWarnings("unchecked")
-	public static SingleOutputStreamOperator<Tuple2<Date, Long>> processSource(StreamExecutionEnvironment env, DataStream<NMAJSONData> source) {
+	public static SingleOutputStreamOperator<TotalTraffic> processSource(StreamExecutionEnvironment env, DataStream<NMAJSONData> source) {
         env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 		
 		BoundedOutOfOrdernessTimestampExtractor<NMAJSONData> timestampAndWatermarkAssigner = getTimestampAndWatermarkAssigner();
 
 		
 		
-		SingleOutputStreamOperator<Tuple2<Date, Long>> dataStream = source
+		SingleOutputStreamOperator<TotalTraffic> dataStream = source
 				.assignTimestampsAndWatermarks(timestampAndWatermarkAssigner)           // extract timestamp and wm strategy
 				.keyBy((NMAJSONData x) -> x.getTime())                                  // key by date
 				.window(TumblingEventTimeWindows.of(Time.seconds(1)))                   // aggregate in 1 sec windows
 				.process(getProcessFunction())                                          // process elements in window
-				.keyBy((Tuple2<Date,Long> x) -> x.f0)                                   // key all processed elements by date (again)
+				.keyBy((TotalTraffic x) -> x.getTime())                                   // key all processed elements by date (again)
 				.window(TumblingEventTimeWindows.of(Time.seconds(1)))                   // aggregate them in 1 sec windows
-				.reduce((Tuple2<Date,Long> v1, Tuple2<Date,Long> v2) -> {				// reduce by merging events with same timestamp
-					if(v1.f0.equals(v2.f0))
-						return Tuple2.of(v1.f0,v1.f1 + v2.f1);
+				.reduce((TotalTraffic v1, TotalTraffic v2) -> {				// reduce by merging events with same timestamp
+					if(v1.getTime().equals(v2.getTime()))
+						return new TotalTraffic(v1.getTime(), v1.getValue() + v2.getValue());
 					LOG.error(""+v1+" "+v2);
 					throw new RuntimeException();
 				});
@@ -206,28 +207,29 @@ public class TotalTrafficReader extends AbstractApp{
 	}
 
 
-	private FlinkPravegaWriter<Tuple2<Date, Long>> getSinkFunction(PravegaConfig pravegaConfig, String outputStreamName) {
+	public static FlinkPravegaWriter<TotalTraffic> getSinkFunction(PravegaConfig pravegaConfig, String outputStreamName) {
 		SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd");
 
-		TupleSerializer<Tuple2> serializer = new TupleSerializer<Tuple2>(Tuple2.class,
-				new TypeSerializer[]{new DateSerializer(),new LongSerializer()});
-
-		TypeInformation<Tuple2<Date,Long>> info = TypeInformation.of(new TypeHint<Tuple2<Date,Long>>(){});
-
 		
-		FlinkPravegaWriter<Tuple2<Date, Long>> sink = FlinkPravegaWriter.<Tuple2<Date, Long>>builder()
+		JsonSerializationSchema<TotalTraffic> serializationSchema = new JsonSerializationSchema<TotalTraffic>();
+		FlinkPravegaWriter<TotalTraffic> sink = FlinkPravegaWriter.<TotalTraffic>builder()
 		        .withPravegaConfig(pravegaConfig)
 		        .forStream(outputStreamName)
-		        .withEventRouter(new PravegaEventRouter<Tuple2<Date, Long>>() {
+		        .withEventRouter(new PravegaEventRouter<TotalTraffic>() {
 
 					@Override
-					public String getRoutingKey(Tuple2<Date, Long> event) {
-						return df.format(event.f0);
+					public String getRoutingKey(TotalTraffic event) {
+						try {
+							LOG.info(new String(serializationSchema.serialize(event),  "UTF-8"));
+						} catch (UnsupportedEncodingException e) {
+							//NOP
+						}
+						return TotalTrafficReader.class.getName();
 					}
 
 		        	
 				})
-                .withSerializationSchema((TypeInformationSerializationSchema<Tuple2<Date,Long>>) new TypeInformationSerializationSchema(info, serializer ))
+                .withSerializationSchema(serializationSchema)
 		        .build();
 		return sink;
 	}	

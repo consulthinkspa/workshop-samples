@@ -4,18 +4,24 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
 import org.influxdb.InfluxDB;
 import org.influxdb.InfluxDBFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public abstract class InfluxDBSink<IN> extends RichSinkFunction<IN> {
-	InfluxDB influxDB = null;
+	private static transient ThreadLocal<InfluxDB> influxDB_TL = new ThreadLocal<InfluxDB>();
+	private static transient final Logger LOG = LoggerFactory.getLogger(InfluxDBSink.class);
 	String influxdbUrl = "";
 	String influxdbUsername = "";
 	String influxdbPassword = "";
 	String influxdbDbName = "";
 
 	public InfluxDBSink() {
+		super();
+		this.influxDB_TL = new ThreadLocal<InfluxDB>();
 	}
 
 	public InfluxDBSink(String influxdbUrl, String influxdbUsername, String influxdbPassword, String influxdbDbName) {
+		this();
 		this.influxdbUrl = influxdbUrl;
 		this.influxdbUsername = influxdbUsername;
 		this.influxdbPassword = influxdbPassword;
@@ -41,25 +47,34 @@ public abstract class InfluxDBSink<IN> extends RichSinkFunction<IN> {
 //    }
 
 	@Override
-	public void open(Configuration config) {
-		if (influxdbUsername == null || influxdbUsername.isEmpty()) {
-			influxDB = InfluxDBFactory.connect(influxdbUrl);
-		} else {
-			influxDB = InfluxDBFactory.connect(influxdbUrl, influxdbUsername, influxdbPassword);
+	public synchronized void  open(Configuration config) {
+		LOG.info("Open "+config);
+		if (influxDB_TL == null) {
+			influxDB_TL = new ThreadLocal<InfluxDB>();
 		}
-//        influxDB.query(new Query("CREATE DATABASE " + influxdbDbName));
-		influxDB.setDatabase(influxdbDbName);
-//        influxDB.query(new Query("DROP SERIES FROM /.*/"));
+		if (influxdbUsername == null || influxdbUsername.isEmpty()) {
+			influxDB_TL.set(InfluxDBFactory.connect(influxdbUrl));
+		} else {
+			influxDB_TL.set(InfluxDBFactory.connect(influxdbUrl, influxdbUsername, influxdbPassword));
+		}
+		influxDB_TL.get().setDatabase(influxdbDbName);
 	}
 
 	@Override
 	public void close() throws Exception {
+		LOG.info("Close ");
 		if (getInfluxDB() != null) {
 			getInfluxDB().close();
 		}
 	}
 	
-	public InfluxDB getInfluxDB() {
-		return influxDB;
+	public synchronized InfluxDB getInfluxDB() {
+		if (influxDB_TL == null) {
+			influxDB_TL = new ThreadLocal<InfluxDB>();
+		}
+		if (influxDB_TL.get() == null) {
+			this.open(null);
+		}
+		return influxDB_TL.get();
 	}
 }

@@ -9,45 +9,42 @@
  */
 package com.dellemc.oe.ingest;
 
-import java.net.URI;
 import java.util.concurrent.CompletableFuture;
-import com.dellemc.oe.util.Parameters;
-import io.pravega.client.ClientConfig;
-import io.pravega.client.EventStreamClientFactory;
-import io.pravega.client.admin.StreamManager;
-import io.pravega.client.stream.EventStreamWriter;
-import io.pravega.client.stream.EventWriterConfig;
-import io.pravega.client.stream.ScalingPolicy;
-import io.pravega.client.stream.StreamConfiguration;
-import io.pravega.client.stream.impl.UTF8StringSerializer;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.dellemc.oe.util.AppConfiguration;
+import com.dellemc.oe.util.AppConfiguration.StreamConfig;
+
+import io.pravega.client.ClientConfig;
+import io.pravega.client.EventStreamClientFactory;
+import io.pravega.client.stream.EventStreamWriter;
+import io.pravega.client.stream.EventWriterConfig;
+import io.pravega.client.stream.impl.UTF8StringSerializer;
 
 /**
  * A simple example app that uses a Pravega Writer to write to a given scope and stream.
  */
-public class EventWriter {
+public class EventWriter implements Runnable{
 
     private static final Logger LOG = LoggerFactory.getLogger(EventWriter.class);
-
-    public EventWriter() {
-
+    private AppConfiguration appConfiguration;
+    
+    public EventWriter(AppConfiguration appConfiguration) {
+    	this.appConfiguration = appConfiguration;
+    	LOG.info(this.getClass().getName()+".appConfiguration = "+this.appConfiguration);
     }
 
     public void run() {
         try{
-            URI controllerURI = Parameters.getControllerURI();
-            StreamManager streamManager = StreamManager.create(controllerURI);
-            String scope = Parameters.getScope();
-            String streamName = Parameters.getStreamName();
-            StreamConfiguration streamConfig = StreamConfiguration.builder()
-                    .scalingPolicy(ScalingPolicy.byEventRate(
-                            Parameters.getTargetRateEventsPerSec(), Parameters.getScaleFactor(), Parameters.getMinNumSegments()))
-                    .build();
-            streamManager.createStream(scope, streamName, streamConfig);
-
-            ClientConfig config = ClientConfig.builder().controllerURI(controllerURI)
-                    .credentials(null).trustStore("").build();
+            String scope = appConfiguration.getInputStreamConfig().getStream().getScope();
+            String streamName = appConfiguration.getInputStreamConfig().getStream().getStreamName();
+            ClientConfig config = appConfiguration.getPravegaConfig().getClientConfig();
+            
+			StreamConfig stream = appConfiguration.getInputStreamConfig();
+	        
+            boolean  streamok = AppConfiguration.createStream(appConfiguration, stream);
             EventStreamClientFactory clientFactory = EventStreamClientFactory.withScope(scope, config);
             // Create  Pravega event writer
             EventStreamWriter<String> writer = clientFactory.createEventWriter(
@@ -55,7 +52,7 @@ public class EventWriter {
                     new UTF8StringSerializer(),
                     EventWriterConfig.builder().build());
             while(true) {
-                final CompletableFuture writeFuture = writer.writeEvent( Parameters.getRoutingKey(), Parameters.getMessage());
+                final CompletableFuture writeFuture = writer.writeEvent( appConfiguration.getRoutingKey(), appConfiguration.getMessage());
                 writeFuture.get();
                 Thread.sleep(1000);
             }
@@ -66,7 +63,7 @@ public class EventWriter {
     }
 
     public static void main(String[] args) {
-        EventWriter ew = new EventWriter();
+        EventWriter ew = new EventWriter(new AppConfiguration(args));
         ew.run();
     }
 }

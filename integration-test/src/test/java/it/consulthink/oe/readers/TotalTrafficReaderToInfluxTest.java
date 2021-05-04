@@ -11,13 +11,17 @@ import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
+import org.apache.flink.api.common.functions.ReduceFunction;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.functions.AssignerWithPeriodicWatermarks;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
-import org.apache.flink.streaming.api.functions.source.FromIteratorFunction;
+import org.apache.flink.streaming.api.functions.timestamps.BoundedOutOfOrdernessTimestampExtractor;
+import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
+import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.test.util.MiniClusterWithClientResource;
 import org.influxdb.InfluxDB;
 import org.junit.BeforeClass;
@@ -29,6 +33,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.Lists;
 import com.influxdb.client.InfluxDBClient;
 
+import it.consulthink.oe.model.TotalTraffic;
 import junit.framework.Assert;
 
 public class TotalTrafficReaderToInfluxTest {
@@ -62,16 +67,45 @@ public class TotalTrafficReaderToInfluxTest {
 		senv.setParallelism(3);
 		senv.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 
-		List<Tuple2<Date, Long>> iterable = Arrays.asList(Tuple2.of(new Date(), 1l), Tuple2.of(new Date(), 2l),
-				Tuple2.of(new Date(), 3l), Tuple2.of(new Date(), 4l));
+		List<TotalTraffic> iterable = Arrays.asList(new TotalTraffic(Tuple2.of(new Date(), 1l)), new TotalTraffic(Tuple2.of(new Date(), 2l)),
+				new TotalTraffic(Tuple2.of(new Date(), 3l)), new TotalTraffic(Tuple2.of(new Date(), 4l)));
 
 
 
-		String inputStreamName = this.getClass()+".testGetSink1";
-		RichSinkFunction<Tuple2<Date, Long>> sink = TotalTrafficReaderToInflux.getSink1(inputStreamName, influxdb1Url,
+		String inputStreamName = this.getClass().getName()+".testGetSink1";
+		RichSinkFunction<TotalTraffic> sink = TotalTrafficReaderToInflux.getSink1(inputStreamName, influxdb1Url,
 				influxdbUsername, influxdbPassword, influxdbDbName);
 
-		DataStreamSink<Tuple2<Date, Long>> addSink = senv.fromCollection(iterable).keyBy(0).addSink(sink);
+		AssignerWithPeriodicWatermarks<TotalTraffic> timestampAndWatermarkAssigner =  new BoundedOutOfOrdernessTimestampExtractor<TotalTraffic>(
+				Time.seconds(2)) {
+
+			@Override
+			public long extractTimestamp(TotalTraffic element) {
+				return element.getTime().getTime();
+			}
+
+		};
+		DataStreamSink<TotalTraffic> addSink = senv.fromCollection(iterable).assignTimestampsAndWatermarks(timestampAndWatermarkAssigner)
+				.keyBy(t -> {
+					return t.getTime();
+				})
+				.window(TumblingEventTimeWindows.of(Time.seconds(1)))
+				.reduce(new ReduceFunction<TotalTraffic>() {
+
+					@Override
+					public TotalTraffic reduce(TotalTraffic value1, TotalTraffic value2)
+							throws Exception {
+						LOG.info("Reduce " + value1 + " " + value2);
+						if (value1.getTime().equals(value2.getTime())) {
+							return new TotalTraffic(value1.getTime(), value1.getValue() + value2.getValue());
+						} else {
+							LOG.error("Error Reduce " + value1 + " " + value2);
+							throw new RuntimeException("Different Time on same Key");
+						}
+
+					}
+				})
+				.addSink(sink).name("Influx." + inputStreamName);
 
 		senv.execute();
 	}
@@ -83,16 +117,45 @@ public class TotalTrafficReaderToInfluxTest {
 		senv.setParallelism(3);
 		senv.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 
-		List<Tuple2<Date, Long>> iterable = Arrays.asList(Tuple2.of(new Date(), 1l), Tuple2.of(new Date(), 2l),
-				Tuple2.of(new Date(), 3l), Tuple2.of(new Date(), 4l));
+		List<TotalTraffic> iterable = TotalTraffic.transform(Arrays.asList(Tuple2.of(new Date(), 1l), Tuple2.of(new Date(), 2l),
+				Tuple2.of(new Date(), 3l), Tuple2.of(new Date(), 4l)));
 
 
 
-		String inputStreamName = this.getClass()+".testGetSink2";
-		RichSinkFunction<Tuple2<Date, Long>> sink = TotalTrafficReaderToInflux.getSink2(inputStreamName, influxdb2Url,
+		String inputStreamName = this.getClass().getName()+".testGetSink2";
+		RichSinkFunction<TotalTraffic> sink = TotalTrafficReaderToInflux.getSink2(inputStreamName, influxdb2Url,
 				org, token, bucket);
 
-		DataStreamSink<Tuple2<Date, Long>> addSink = senv.fromCollection(iterable).keyBy(0).addSink(sink);
+		AssignerWithPeriodicWatermarks<TotalTraffic> timestampAndWatermarkAssigner =  new BoundedOutOfOrdernessTimestampExtractor<TotalTraffic>(
+				Time.seconds(2)) {
+
+			@Override
+			public long extractTimestamp(TotalTraffic element) {
+				return element.getTime().getTime();
+			}
+
+		};
+		DataStreamSink<TotalTraffic> addSink = senv.fromCollection(iterable).assignTimestampsAndWatermarks(timestampAndWatermarkAssigner)
+				.keyBy(t -> {
+					return t.getTime();
+				})
+				.window(TumblingEventTimeWindows.of(Time.seconds(1)))
+				.reduce(new ReduceFunction<TotalTraffic>() {
+
+					@Override
+					public TotalTraffic reduce(TotalTraffic value1, TotalTraffic value2)
+							throws Exception {
+						LOG.info("Reduce " + value1 + " " + value2);
+						if (value1.getTime().equals(value2.getTime())) {
+							return new TotalTraffic(value1.getTime(), value1.getValue() + value2.getValue());
+						} else {
+							LOG.error("Error Reduce " + value1 + " " + value2);
+							throw new RuntimeException("Different Time on same Key");
+						}
+
+					}
+				})
+				.addSink(sink).name("Influx." + inputStreamName);
 
 		senv.execute();
 	}
@@ -106,16 +169,16 @@ public class TotalTrafficReaderToInfluxTest {
 		
 		java.util.Random r = new java.util.Random(System.currentTimeMillis());
 		
-		List<Tuple2<Date, Long>> iterable = Lists.newArrayList(Stream.generate(new Supplier<Tuple2<Date, Long>>() {
+		List<TotalTraffic> iterable = Lists.newArrayList(Stream.generate(new Supplier<TotalTraffic>() {
 
 			@Override
-			public Tuple2<Date, Long> get() {
+			public TotalTraffic get() {
 
 				try {
 					Thread.sleep(500);
 				} catch (Throwable e) {}
 
-				return Tuple2.of(new Date(), (long) r.nextInt(1024));
+				return new TotalTraffic(Tuple2.of(new Date(), (long) r.nextInt(1024)));
 			}
 		
 			
@@ -124,12 +187,41 @@ public class TotalTrafficReaderToInfluxTest {
 		.iterator());
 
 
-		String inputStreamName = this.getClass()+".testGetSink1Infinite";
-		RichSinkFunction<Tuple2<Date, Long>> sink = TotalTrafficReaderToInflux.getSink1(inputStreamName, influxdb1Url,
+		String inputStreamName = this.getClass().getName()+".testGetSink1Infinite";
+		RichSinkFunction<TotalTraffic> sink = TotalTrafficReaderToInflux.getSink1(inputStreamName, influxdb1Url,
 				influxdbUsername, influxdbPassword, influxdbDbName);
 
-//		FromIteratorFunction<Tuple2<Date, Long>> source = new FromIteratorFunction<Tuple2<Date, Long>>(iterator);
-		DataStreamSink<Tuple2<Date, Long>> sinked = senv.fromCollection(iterable).keyBy(0).addSink(sink);
+//		FromIteratorFunction<TotalTraffic> source = new FromIteratorFunction<TotalTraffic>(iterator);
+		AssignerWithPeriodicWatermarks<TotalTraffic> timestampAndWatermarkAssigner =  new BoundedOutOfOrdernessTimestampExtractor<TotalTraffic>(
+				Time.seconds(2)) {
+
+			@Override
+			public long extractTimestamp(TotalTraffic element) {
+				return element.getTime().getTime();
+			}
+
+		};
+		DataStreamSink<TotalTraffic> addSink = senv.fromCollection(iterable).assignTimestampsAndWatermarks(timestampAndWatermarkAssigner)
+				.keyBy(t -> {
+					return t.getTime();
+				})
+				.window(TumblingEventTimeWindows.of(Time.seconds(1)))
+				.reduce(new ReduceFunction<TotalTraffic>() {
+
+					@Override
+					public TotalTraffic reduce(TotalTraffic value1, TotalTraffic value2)
+							throws Exception {
+						LOG.info("Reduce " + value1 + " " + value2);
+						if (value1.getTime().equals(value2.getTime())) {
+							return new TotalTraffic(value1.getTime(), value1.getValue() + value2.getValue());
+						} else {
+							LOG.error("Error Reduce " + value1 + " " + value2);
+							throw new RuntimeException("Different Time on same Key");
+						}
+
+					}
+				})
+				.addSink(sink).name("Influx." + inputStreamName);
 
 		senv.execute();
 	}
@@ -143,11 +235,11 @@ public class TotalTrafficReaderToInfluxTest {
 		
 		java.util.Random r = new java.util.Random(System.currentTimeMillis());
 		
-		List<Tuple2<Date, Long>> iterable = Lists.newArrayList(Stream.generate(new Supplier<Tuple2<Date, Long>>() {
+		List<TotalTraffic> iterable = Lists.newArrayList(Stream.generate(new Supplier<TotalTraffic>() {
 
 			@Override
-			public Tuple2<Date, Long> get() {
-				return Tuple2.of(new Date(), (long) r.nextInt(1024));
+			public TotalTraffic get() {
+				return new TotalTraffic(Tuple2.of(new Date(), (long) r.nextInt(1024)));
 			}
 		
 			
@@ -156,12 +248,40 @@ public class TotalTrafficReaderToInfluxTest {
 		.iterator());
 
 
-		String inputStreamName = this.getClass()+".testGetSink2Infinite";
-		RichSinkFunction<Tuple2<Date, Long>> sink = TotalTrafficReaderToInflux.getSink2(inputStreamName, influxdb2Url,
+		String inputStreamName = this.getClass().getName()+".testGetSink2Infinite";
+		RichSinkFunction<TotalTraffic> sink = TotalTrafficReaderToInflux.getSink2(inputStreamName, influxdb2Url,
 				org, token, bucket);
 
-//		FromIteratorFunction<Tuple2<Date, Long>> source = new FromIteratorFunction<Tuple2<Date, Long>>(iterator);
-		DataStreamSink<Tuple2<Date, Long>> sinked = senv.fromCollection(iterable).keyBy(0).addSink(sink);
+		AssignerWithPeriodicWatermarks<TotalTraffic> timestampAndWatermarkAssigner =  new BoundedOutOfOrdernessTimestampExtractor<TotalTraffic>(
+				Time.seconds(2)) {
+
+			@Override
+			public long extractTimestamp(TotalTraffic element) {
+				return element.getTime().getTime();
+			}
+
+		};
+		DataStreamSink<TotalTraffic> addSink = senv.fromCollection(iterable).assignTimestampsAndWatermarks(timestampAndWatermarkAssigner)
+				.keyBy(t -> {
+					return t.getTime();
+				})
+				.window(TumblingEventTimeWindows.of(Time.seconds(1)))
+				.reduce(new ReduceFunction<TotalTraffic>() {
+
+					@Override
+					public TotalTraffic reduce(TotalTraffic value1, TotalTraffic value2)
+							throws Exception {
+						LOG.info("Reduce " + value1 + " " + value2);
+						if (value1.getTime().equals(value2.getTime())) {
+							return new TotalTraffic(value1.getTime(), value1.getValue() + value2.getValue());
+						} else {
+							LOG.error("Error Reduce " + value1 + " " + value2);
+							throw new RuntimeException("Different Time on same Key");
+						}
+
+					}
+				})
+				.addSink(sink).name("Influx." + inputStreamName);
 
 		senv.execute();
 	}

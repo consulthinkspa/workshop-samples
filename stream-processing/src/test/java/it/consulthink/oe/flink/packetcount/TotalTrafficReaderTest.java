@@ -1,7 +1,5 @@
 package it.consulthink.oe.flink.packetcount;
 
-import static org.junit.Assert.assertThat;
-
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -38,6 +36,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import it.consulthink.oe.model.NMAJSONData;
+import it.consulthink.oe.model.TotalTraffic;
 import junit.framework.Assert;
 
 public class TotalTrafficReaderTest {
@@ -82,14 +81,14 @@ public class TotalTrafficReaderTest {
 	
 	@Test
 	public void testProcessFunction() throws Exception {
-		ProcessWindowFunction<NMAJSONData, Tuple2<Date, Long>, Date, TimeWindow> sumBytes = TotalTrafficReader.getProcessFunction();
+		ProcessWindowFunction<NMAJSONData, TotalTraffic, Date, TimeWindow> sumBytes = TotalTrafficReader.getProcessFunction();
 
-		Collector<Tuple2<Date, Long>> collector = new Collector<Tuple2<Date, Long>>() {
+		Collector<TotalTraffic> collector = new Collector<TotalTraffic>() {
 			Long collected = 0l;
 
 			@Override
-			public void collect(Tuple2<Date, Long> record) {
-				this.collected += record.f1;
+			public void collect(TotalTraffic record) {
+				this.collected += record.getValue();
 			}
 
 			@Override
@@ -112,7 +111,7 @@ public class TotalTrafficReaderTest {
 					new NMAJSONData(example, "", "", "", "", 0l, 0l,0l,0l,0l,0l,0l,0l,0l,0l,0l)
 				);
 
-		ProcessWindowFunction<NMAJSONData, Tuple2<Date, Long>, Date, TimeWindow>.Context ctx = null;
+		ProcessWindowFunction<NMAJSONData, TotalTraffic, Date, TimeWindow>.Context ctx = null;
 		sumBytes.process(example, ctx, iterable, collector);
 
 		Assert.assertEquals("0", collector.toString());
@@ -152,7 +151,7 @@ public class TotalTrafficReaderTest {
 		source.printToErr();
 		LOG.info("==============  ProcessSource Source - PRINTED  ===============");
 		
-		SingleOutputStreamOperator<Tuple2<Date, Long>> datasource = TotalTrafficReader.processSource(senv, source);
+		SingleOutputStreamOperator<TotalTraffic> datasource = TotalTrafficReader.processSource(senv, source);
 		
 		
 //		datasource.printToErr();
@@ -162,13 +161,13 @@ public class TotalTrafficReaderTest {
 		LOG.info("==============  ProcessSource Sink - PRINTED  ===============");
 		senv.execute();
 		
-		for (Tuple2<Date, Long> l : CollectSink.values) {
+		for (TotalTraffic l : CollectSink.values) {
 			LOG.info(l.toString());
 		}
 		
 		long total = 0l;
-		for (Tuple2<Date, Long> l : CollectSink.values) {
-			total+=l.f1;
+		for (TotalTraffic l : CollectSink.values) {
+			total+=l.getValue();
 		}
 		
         // verify your results
@@ -230,7 +229,7 @@ public class TotalTrafficReaderTest {
 		source.printToErr();
 		LOG.info("==============  ProcessSource Source - PRINTED  ===============");
 		
-		SingleOutputStreamOperator<Tuple2<Date, Long>> datasource = TotalTrafficReader.processSource(senv, source);
+		SingleOutputStreamOperator<TotalTraffic> datasource = TotalTrafficReader.processSource(senv, source);
 		
 		
 //		datasource.printToErr();
@@ -238,8 +237,8 @@ public class TotalTrafficReaderTest {
 		datasource.addSink(JdbcSink.sink(
 	            "insert into total_traffic (event_time, traffic) values (?,?)",
 	            (ps, t) -> {
-	                ps.setTimestamp(1, java.sql.Timestamp.from(t.f0.toInstant()));
-	                ps.setLong(2, t.f1);
+	                ps.setTimestamp(1, java.sql.Timestamp.from(t.getTime().toInstant()));
+	                ps.setLong(2, t.getValue());
 	            },
 	            new JdbcConnectionOptions.JdbcConnectionOptionsBuilder()
 	                    .withUrl("jdbc:hsqldb:mem:nmadb")
@@ -293,29 +292,29 @@ public class TotalTrafficReaderTest {
 		source.printToErr();
 		LOG.info("==============  ProcessSource Source - PRINTED  ===============");
 		
-		SingleOutputStreamOperator<Tuple2<Date, Long>> datasource = TotalTrafficReader.processSource(senv, source);
+		SingleOutputStreamOperator<TotalTraffic> datasource = TotalTrafficReader.processSource(senv, source);
 		
 		
 //		datasource.printToErr();
 		LOG.info("==============  ProcessSource Processed - PRINTED  ===============");
 		datasource
-			.keyBy(new KeySelector<Tuple2<Date,Long>, Date>(){
+			.keyBy(new KeySelector<TotalTraffic, Date>(){
 
 				@Override
-				public Date getKey(Tuple2<Date, Long> value) throws Exception {
-					return value.f0;
+				public Date getKey(TotalTraffic value) throws Exception {
+					return value.getTime();
 				}
 				
 			})
 			.window(TumblingEventTimeWindows.of(Time.seconds(1)))
-			.reduce(new ReduceFunction<Tuple2<Date,Long>>() {
+			.reduce(new ReduceFunction<TotalTraffic>() {
 				
 				@Override
-				public Tuple2<Date, Long> reduce(Tuple2<Date, Long> value1, Tuple2<Date, Long> value2) throws Exception {
+				public TotalTraffic reduce(TotalTraffic value1, TotalTraffic value2) throws Exception {
 					
 					
-					if (value1.f0.equals(value2.f0))
-						return Tuple2.of(value1.f0, value1.f1 + value2.f1);
+					if (value1.getTime().equals(value2.getTime()))
+						return new TotalTraffic(Tuple2.of(value1.getTime(), value1.getValue() + value2.getValue()));
 					LOG.error(""+value1+" "+value2);
 					throw new RuntimeException();
 				}
@@ -325,13 +324,13 @@ public class TotalTrafficReaderTest {
 		LOG.info("==============  ProcessSource Sink - PRINTED  ===============");
 		senv.execute();
 		
-		for (Tuple2<Date, Long> l : CollectSink.values) {
+		for (TotalTraffic l : CollectSink.values) {
 			LOG.info(l.toString());
 		}
 		
 		long total = 0l;
-		for (Tuple2<Date, Long> l : CollectSink.values) {
-			total+=l.f1;
+		for (TotalTraffic l : CollectSink.values) {
+			total+=l.getValue();
 		}
 		
         // verify your results
@@ -358,7 +357,7 @@ public class TotalTrafficReaderTest {
         source.printToErr();
 		LOG.info("==============  ProcessSource Source - PRINTED  ===============");
 		
-		SingleOutputStreamOperator<Tuple2<Date, Long>> datasource = TotalTrafficReader.processSource(senv, source);
+		SingleOutputStreamOperator<TotalTraffic> datasource = TotalTrafficReader.processSource(senv, source);
 		
 		
 //		datasource.printToErr();
@@ -368,13 +367,13 @@ public class TotalTrafficReaderTest {
 		LOG.info("==============  ProcessSource Sink - PRINTED  ===============");
 		senv.execute();
 		
-		for (Tuple2<Date, Long> l : CollectSink.values) {
+		for (TotalTraffic l : CollectSink.values) {
 			LOG.info(l.toString());
 		}
 		
 		long total = 0l;
-		for (Tuple2<Date, Long> l : CollectSink.values) {
-			total+=l.f1;
+		for (TotalTraffic l : CollectSink.values) {
+			total+=l.getValue();
 		}
 		
         // verify your results
@@ -384,13 +383,13 @@ public class TotalTrafficReaderTest {
 
 
 	
-	private static class CollectSink implements SinkFunction<Tuple2<Date, Long>> {
+	private static class CollectSink implements SinkFunction<TotalTraffic> {
 		private static final Logger LOG = LoggerFactory.getLogger(CollectSink.class);
         // must be static
-        public static final List<Tuple2<Date, Long>> values = Collections.synchronizedList(new ArrayList<Tuple2<Date, Long>>());
+        public static final List<TotalTraffic> values = Collections.synchronizedList(new ArrayList<TotalTraffic>());
 
         @Override
-        public void invoke(Tuple2<Date, Long> value) throws Exception {
+        public void invoke(TotalTraffic value) throws Exception {
         	LOG.info("collect:" + value);
             values.add(value);
         }
