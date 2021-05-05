@@ -63,6 +63,7 @@ import io.pravega.connectors.flink.FlinkPravegaReader;
 import io.pravega.connectors.flink.FlinkPravegaWriter;
 import io.pravega.connectors.flink.PravegaConfig;
 import it.consulthink.oe.ingest.NMAJSONDataGenerator;
+import it.consulthink.oe.model.Anomaly;
 import it.consulthink.oe.model.NMAJSONData;
 import moa.cluster.Cluster;
 import moa.cluster.Clustering;
@@ -118,13 +119,13 @@ public class AnomalyReader extends AbstractApp {
         
         trainStreamKM(appConfiguration, 500);
         
-        SingleOutputStreamOperator<Tuple3<NMAJSONData, Double, Cluster>> dataStream = processSource(env, source);
+        SingleOutputStreamOperator<Anomaly> dataStream = processSource(env, source);
 
         dataStream.printToErr();
         LOG.info("==============  ProcessSource - PRINTED  ===============");
 
 
-        FlinkPravegaWriter<Tuple3<NMAJSONData, Double, Cluster>> sink = getSinkFunction(pravegaConfig, outputStreamName);
+        FlinkPravegaWriter<Anomaly> sink = getSinkFunction(pravegaConfig, outputStreamName);
 
         dataStream
         .addSink(sink).name("NMAAnomalyReaderStream");
@@ -191,21 +192,21 @@ public class AnomalyReader extends AbstractApp {
     }
 
 
-    private FlinkPravegaWriter<Tuple3<NMAJSONData, Double, Cluster>> getSinkFunction(PravegaConfig pravegaConfig, String outputStreamName) {
+    private FlinkPravegaWriter<Anomaly> getSinkFunction(PravegaConfig pravegaConfig, String outputStreamName) {
     	final SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm");
-        FlinkPravegaWriter<Tuple3<NMAJSONData, Double, Cluster>> sink = FlinkPravegaWriter.<Tuple3<NMAJSONData, Double, Cluster>>builder()
+        FlinkPravegaWriter<Anomaly> sink = FlinkPravegaWriter.<Anomaly>builder()
                 .withPravegaConfig(pravegaConfig)
                 .forStream(outputStreamName)
                 .withEventRouter((x) -> "Anomalies")
-                .withSerializationSchema(new JsonSerializationSchema<Tuple3<NMAJSONData, Double, Cluster>>())
+                .withSerializationSchema(new JsonSerializationSchema<Anomaly>())
                 .build();
         return sink;
     }
 
 
 
-    public static SingleOutputStreamOperator<Tuple3<NMAJSONData, Double, Cluster>> processSource(StreamExecutionEnvironment env, DataStream<NMAJSONData> source){
-    	SingleOutputStreamOperator<Tuple3<NMAJSONData, Double, Cluster>> result = null;
+    public static SingleOutputStreamOperator<Anomaly> processSource(StreamExecutionEnvironment env, DataStream<NMAJSONData> source){
+    	SingleOutputStreamOperator<Anomaly> result = null;
     	
     	
         StreamKM streamKM = getDefaultStreamKM();
@@ -225,7 +226,7 @@ public class AnomalyReader extends AbstractApp {
 		
 		
 
-			KeyedBroadcastProcessFunction<String, NMAJSONData, StreamKM, Tuple3<NMAJSONData, Double, Cluster>> pf = getProcessFunctionWithMapState();
+			KeyedBroadcastProcessFunction<String, NMAJSONData, StreamKM, Anomaly> pf = getProcessFunctionWithMapState();
 			BroadcastConnectedStream<NMAJSONData, StreamKM> connectedStream = source
 					.assignTimestampsAndWatermarks(timestampAndWatermarkAssigner)
 					.keyBy((line) -> {
@@ -234,10 +235,10 @@ public class AnomalyReader extends AbstractApp {
 					.connect(kmStream);
 			result = connectedStream
 					.process(pf)
-					.filter(new FilterFunction<Tuple3<NMAJSONData,Double,Cluster>>() {
+					.filter(new FilterFunction<Anomaly>() {
 						@Override
-						public boolean filter(Tuple3<NMAJSONData, Double, Cluster> t) throws Exception {
-							return (t.f2 == null || t.f1 == 0d);
+						public boolean filter(Anomaly t) throws Exception {
+							return (t.getAssignedCluster() == null || t.getMaxProbability() == 0d);
 						}
 					});
 		
@@ -275,11 +276,11 @@ public class AnomalyReader extends AbstractApp {
     static final MapStateDescriptor<String, StreamKM> kmStateDesc                          = new MapStateDescriptor<String, StreamKM>               (STREAM_KM, BasicTypeInfo.STRING_TYPE_INFO,TypeInformation.of(StreamKM.class));
     static final MapStateDescriptor<String, Map<String, NMAJSONData>> sessionsMapStateDesc = new MapStateDescriptor<String, Map<String,NMAJSONData>>("Sessions",BasicTypeInfo.STRING_TYPE_INFO,new MapTypeInfo<String,NMAJSONData>(String.class, NMAJSONData.class));
     
-    public static KeyedBroadcastProcessFunction<String, NMAJSONData, StreamKM, Tuple3<NMAJSONData, Double, Cluster> > getProcessFunctionWithMapState() {
+    public static KeyedBroadcastProcessFunction<String, NMAJSONData, StreamKM, Anomaly > getProcessFunctionWithMapState() {
 
 
 		    	
-    	KeyedBroadcastProcessFunction<String, NMAJSONData, StreamKM, Tuple3<NMAJSONData, Double, Cluster> >  result = new KeyedBroadcastProcessFunction<String, NMAJSONData, StreamKM, Tuple3<NMAJSONData, Double, Cluster> > (){
+    	KeyedBroadcastProcessFunction<String, NMAJSONData, StreamKM, Anomaly >  result = new KeyedBroadcastProcessFunction<String, NMAJSONData, StreamKM, Anomaly > (){
 
         	
 
@@ -287,8 +288,8 @@ public class AnomalyReader extends AbstractApp {
 
 			@Override
 			public void processElement(NMAJSONData data,
-					KeyedBroadcastProcessFunction<String, NMAJSONData, StreamKM, Tuple3<NMAJSONData, Double, Cluster> > .ReadOnlyContext ctx,
-					Collector<Tuple3<NMAJSONData, Double, Cluster>> out) throws Exception {
+					KeyedBroadcastProcessFunction<String, NMAJSONData, StreamKM, Anomaly > .ReadOnlyContext ctx,
+					Collector<Anomaly> out) throws Exception {
 				
 				StreamKM streamKM = null;
 				StreamKM streamKM1 = ctx.getBroadcastState(kmStateDesc).get(STREAM_KM);
@@ -339,7 +340,7 @@ public class AnomalyReader extends AbstractApp {
 				}
 				
 
-				out.collect(Tuple3.of(data, maxProbability, assignedCluster));	
+				out.collect(new Anomaly(Tuple3.of(data, maxProbability, assignedCluster)));	
 				
 			}
 
@@ -351,8 +352,8 @@ public class AnomalyReader extends AbstractApp {
 
 			@Override
 			public void processBroadcastElement(StreamKM value,
-					KeyedBroadcastProcessFunction<String, NMAJSONData, StreamKM, Tuple3<NMAJSONData, Double, Cluster>>.Context ctx,
-					Collector<Tuple3<NMAJSONData, Double, Cluster>> out) throws Exception {
+					KeyedBroadcastProcessFunction<String, NMAJSONData, StreamKM, Anomaly>.Context ctx,
+					Collector<Anomaly> out) throws Exception {
 				
 				ctx.getBroadcastState(kmStateDesc).put(STREAM_KM, value);
 				

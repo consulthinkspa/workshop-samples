@@ -3,16 +3,12 @@ package it.consulthink.oe.flink.moa;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Date;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 
 import org.apache.commons.collections.CollectionUtils;
-import org.apache.commons.lang3.time.DateUtils;
-import org.apache.commons.math3.stat.inference.TestUtils;
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -29,9 +25,9 @@ import com.dellemc.oe.util.AppConfiguration;
 
 import it.consulthink.oe.flink.packetcount.TestUtilities;
 import it.consulthink.oe.ingest.NMAJSONDataGenerator;
+import it.consulthink.oe.model.Anomaly;
 import it.consulthink.oe.model.NMAJSONData;
 import junit.framework.Assert;
-import moa.cluster.Cluster;
 import moa.clusterers.streamkm.StreamKM;
 
 public class AnomalyReaderTest {
@@ -84,7 +80,7 @@ public class AnomalyReaderTest {
 		Stream<NMAJSONData> stream = NMAJSONDataGenerator.generateInfiniteStreamNoAnomaly(myIps).limit(streamLimit);
 		AnomalyReader.trainStreamKM(stream);
 		
-		SingleOutputStreamOperator<Tuple3<NMAJSONData, Double, Cluster>> datasource = AnomalyReader.processSource(senv,	source);
+		SingleOutputStreamOperator<Anomaly> datasource = AnomalyReader.processSource(senv,	source);
 
 		CollectSink sink = new CollectSink(input, anomalies);
 		datasource.addSink(sink);
@@ -171,7 +167,7 @@ public class AnomalyReaderTest {
 			StreamKM defaultStreamKM = AnomalyReader.generateStreamKM(lengthOption, numClustersOption);
 			Stream<NMAJSONData> stream = NMAJSONDataGenerator.generateInfiniteStreamNoAnomaly(myIps).limit(streamLimit);
 			AnomalyReader.trainStreamKM(stream);
-			SingleOutputStreamOperator<Tuple3<NMAJSONData, Double, Cluster>> datasource = AnomalyReader.processSource(senv,	source);
+			SingleOutputStreamOperator<Anomaly> datasource = AnomalyReader.processSource(senv,	source);
 
 			CollectSink sink = new CollectSink(input, anomalies);
 			CollectSink.clear();
@@ -229,7 +225,7 @@ public class AnomalyReaderTest {
 		StreamKM defaultStreamKM = AnomalyReader.generateStreamKM(lengthOption, numClustersOption);
 		Stream<NMAJSONData> stream = NMAJSONDataGenerator.generateInfiniteStreamNoAnomaly(myIps).limit(streamLimit);
 		AnomalyReader.trainStreamKM(stream);
-		SingleOutputStreamOperator<Tuple3<NMAJSONData, Double, Cluster>> datasource = AnomalyReader.processSource(senv,
+		SingleOutputStreamOperator<Anomaly> datasource = AnomalyReader.processSource(senv,
 				source);
 
 		CollectSink sink = new CollectSink();
@@ -238,9 +234,9 @@ public class AnomalyReaderTest {
 
 		Collection<NMAJSONData> finding = new ArrayList<NMAJSONData>();
 
-		for (Tuple3<NMAJSONData, Double, Cluster> t : sink.values) {
-			finding.add(t.f0);
-			LOG.warn("** ANOMALY ** :: " + t.f0.toString());
+		for (Anomaly t : sink.values) {
+			finding.add(t.getData());
+			LOG.warn("** ANOMALY ** :: " + t.getData().toString());
 		}
 
 
@@ -370,13 +366,13 @@ public class AnomalyReaderTest {
 				
 	}	
 
-	private static class CollectSink implements SinkFunction<Tuple3<NMAJSONData, Double, Cluster>> {
+	private static class CollectSink implements SinkFunction<Anomaly> {
 		
 		private List<NMAJSONData> input = null;
 		private List<NMAJSONData> anomalies = null;
 		private static Collection<NMAJSONData> finding = Collections.synchronizedList(new ArrayList<NMAJSONData>());
 		// must be static
-		public static final List<Tuple3<NMAJSONData, Double, Cluster>> values = Collections.synchronizedList(new ArrayList<Tuple3<NMAJSONData, Double, Cluster>>());
+		public static final List<Anomaly> values = Collections.synchronizedList(new ArrayList<Anomaly>());
 
 
 		public static void clear() {
@@ -400,8 +396,8 @@ public class AnomalyReaderTest {
 
 
 		@Override
-		public void invoke(Tuple3<NMAJSONData, Double, Cluster> value) throws Exception {
-			finding.add(value.f0);
+		public void invoke(Anomaly value) throws Exception {
+			finding.add(value.getData());
 			values.add(value);
 		}
 		

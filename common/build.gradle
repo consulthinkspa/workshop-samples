@@ -29,6 +29,8 @@ dependencies {
     compile "com.influxdb:influxdb-client-java:2.1.0"
     compile "org.influxdb:influxdb-java:2.21"
     
+    compile "nz.ac.waikato.cms.moa:moa:${moaVersion}"
+    
 	
 	// MongoDB
 	// https://mvnrepository.com/artifact/org.mongodb/mongodb-driver

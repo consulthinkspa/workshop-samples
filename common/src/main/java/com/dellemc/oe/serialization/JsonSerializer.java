@@ -39,6 +39,7 @@ public class JsonSerializer<T> implements Serializer<T> {
     public ByteBuffer serialize(T value) {
         try {
             byte[] result = objectMapper.writeValueAsBytes(value);
+            System.out.println("JsonSerializer serialize >> " + value);
             return ByteBuffer.wrap(result);
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -52,6 +53,7 @@ public class JsonSerializer<T> implements Serializer<T> {
                 serializedValue.remaining());
         try {
                     T result = objectMapper.readValue(bin, this.valuetype);
+                    System.out.println("JsonSerializer deserialize >> " + result);
 					return result;
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -62,6 +64,7 @@ public class JsonSerializer<T> implements Serializer<T> {
     public byte[] serializeToByteArray(T o) {
         try {
             byte[] result = this.objectMapper.writeValueAsBytes(o);
+            System.out.println("JsonSerializer serialize >> " + o);
             return result;
         } catch (Exception e) {
             return null;
