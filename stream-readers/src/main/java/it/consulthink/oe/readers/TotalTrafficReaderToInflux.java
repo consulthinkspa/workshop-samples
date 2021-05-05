@@ -125,25 +125,25 @@ public class TotalTrafficReaderToInflux extends AbstractApp {
 		
 		DataStreamSink<TotalTraffic> dataStream = source
 				.assignTimestampsAndWatermarks(timestampAndWatermarkAssigner)
-				.keyBy(t -> {
-					return t.getTime();
-				})
-				.window(TumblingEventTimeWindows.of(Time.seconds(1)))
-				.reduce(new ReduceFunction<TotalTraffic>() {
-
-					@Override
-					public TotalTraffic reduce(TotalTraffic value1, TotalTraffic value2)
-							throws Exception {
-						LOG.info("Reduce " + value1 + " " + value2);
-						if (value1.getTime().equals(value2.getTime())) {
-							return new TotalTraffic(value1.getTime(), value1.getValue() + value2.getValue());
-						} else {
-							LOG.error("Error Reduce " + value1 + " " + value2);
-							throw new RuntimeException("Different Time on same Key");
-						}
-
-					}
-				})
+//				.keyBy(t -> {
+//					return t.getTime();
+//				})
+//				.window(TumblingEventTimeWindows.of(Time.seconds(1)))
+//				.reduce(new ReduceFunction<TotalTraffic>() {
+//
+//					@Override
+//					public TotalTraffic reduce(TotalTraffic value1, TotalTraffic value2)
+//							throws Exception {
+//						LOG.info("Reduce " + value1 + " " + value2);
+//						if (value1.getTime().equals(value2.getTime())) {
+//							return new TotalTraffic(value1.getTime(), value1.getValue() + value2.getValue());
+//						} else {
+//							LOG.error("Error Reduce " + value1 + " " + value2);
+//							throw new RuntimeException("Different Time on same Key");
+//						}
+//
+//					}
+//				})
 				.addSink(sink).name("Influx." + inputStreamName);
 
 		

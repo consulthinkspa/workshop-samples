@@ -47,11 +47,13 @@ public class EventWriter implements Runnable{
             boolean  streamok = AppConfiguration.createStream(appConfiguration, stream);
             EventStreamClientFactory clientFactory = EventStreamClientFactory.withScope(scope, config);
             // Create  Pravega event writer
-            EventStreamWriter<String> writer = clientFactory.createEventWriter(
+            UTF8StringSerializer serializer = new UTF8StringSerializer();
+			EventStreamWriter<String> writer = clientFactory.createEventWriter(
                     streamName,
-                    new UTF8StringSerializer(),
+                    serializer,
                     EventWriterConfig.builder().build());
             while(true) {
+            	System.err.println("Sending  "+appConfiguration.getMessage()+ " >> " + new String(serializer.serialize(appConfiguration.getMessage()).array(),  "UTF-8"));
                 final CompletableFuture writeFuture = writer.writeEvent( appConfiguration.getRoutingKey(), appConfiguration.getMessage());
                 writeFuture.get();
                 Thread.sleep(1000);

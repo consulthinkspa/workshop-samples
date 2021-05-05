@@ -27,6 +27,7 @@ public class JsonDeserializationSchema<T> implements DeserializationSchema<T> {
     public T deserialize(byte[] message) throws IOException {
         ObjectMapper objectMapper = new ObjectMapper();
         T readValue = objectMapper.readValue(message, valueType);
+        System.out.println("JsonDeserializationSchema >> " + readValue);
 		return readValue;
     }
 
