@@ -39,4 +39,4 @@ jobs:
         files: |
           stream-ingest/build/libs/*.jar
           stream-readers/build/libs/*.jar
-          stream-progressing/build/libs/*.jar
+          stream-processing/build/libs/*.jar
