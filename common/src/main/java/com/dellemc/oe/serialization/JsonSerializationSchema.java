@@ -19,7 +19,12 @@ public class JsonSerializationSchema<T> implements SerializationSchema<T> {
         ObjectMapper objectMapper = new ObjectMapper();
         try {
             byte[] result = objectMapper.writeValueAsBytes(o);
-            System.out.println("JsonSerializationSchema >> " + o);
+            System.out.println("JsonSerializationSchema << " + o);
+            try {
+    			System.out.println("JsonSerializationSchema >> " + new String(result, "UTF-8"));
+    		} catch (Throwable e) {
+    			//NOP
+    		}
             return result;
         } catch (Exception e) {
             return null;

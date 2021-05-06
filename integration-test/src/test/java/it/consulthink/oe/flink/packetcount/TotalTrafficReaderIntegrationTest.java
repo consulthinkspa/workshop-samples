@@ -22,14 +22,15 @@ import it.consulthink.oe.readers.TotalTrafficReaderToInflux;
 import junit.framework.Assert;
 
 public class TotalTrafficReaderIntegrationTest {
+	private static final String DOCKER_HOST = "host.docker.internal";
 	public static final String DOCKER_COMPOSE_YML = "docker-compose.yml";
 
 	private static final Logger LOG = LoggerFactory.getLogger(TotalTrafficReaderIntegrationTest.class);
-	private final static int flinkParallelism = 3;
+	private final static int flinkParallelism = 2;
 
 	@ClassRule
 	public static MiniClusterWithClientResource flinkCluster = new MiniClusterWithClientResource(
-			new MiniClusterResourceConfiguration.Builder().setNumberSlotsPerTaskManager(flinkParallelism).setNumberTaskManagers(flinkParallelism)
+			new MiniClusterResourceConfiguration.Builder().setNumberSlotsPerTaskManager(25).setNumberTaskManagers(2)
 					.build());	
 
 	private static String OS = null;
@@ -53,7 +54,7 @@ public class TotalTrafficReaderIntegrationTest {
         String scope = "integration-test";
 		String myIp = "213.61.202.114,213.61.202.115,213.61.202.116,213.61.202.117,213.61.202.118,213.61.202.119,213.61.202.120,213.61.202.121,213.61.202.122,213.61.202.123,213.61.202.124,213.61.202.125,213.61.202.126";
 		String inputStreamName = "nma-input";
-		String controllerUri = "tcp://host.docker.internal:9090";
+		String controllerUri = "tcp://" + DOCKER_HOST + ":9090";
 		String[] argsIngestor = {
           	  "--myIps", myIp,
       		  "--scope", scope,
@@ -79,14 +80,14 @@ public class TotalTrafficReaderIntegrationTest {
 	
 	@Test
 	public void testProcessor() throws IOException, InterruptedException {
-		LOG.info("Starting testRun2...");
+		LOG.info("Starting testProcessor...");
 
 
         String scope = "integration-test";
 		String myIp = "213.61.202.114,213.61.202.115,213.61.202.116,213.61.202.117,213.61.202.118,213.61.202.119,213.61.202.120,213.61.202.121,213.61.202.122,213.61.202.123,213.61.202.124,213.61.202.125,213.61.202.126";
 		String inputStreamName = "nma-input";
 		String outputStreamName = "total-traffic";
-		String controllerUri = "tcp://host.docker.internal:9090";
+		String controllerUri = "tcp://" + DOCKER_HOST + ":9090";
 		String[] argsIngestor = {
           	  "--myIps", myIp,
       		  "--scope", scope,
@@ -137,7 +138,7 @@ public class TotalTrafficReaderIntegrationTest {
 		String myIp = "213.61.202.114,213.61.202.115,213.61.202.116,213.61.202.117,213.61.202.118,213.61.202.119,213.61.202.120,213.61.202.121,213.61.202.122,213.61.202.123,213.61.202.124,213.61.202.125,213.61.202.126";
 		String inputStreamName = "nma-input";
 		String outputStreamName = "total-traffic";
-		String controllerUri = "tcp://host.docker.internal:9090";
+		String controllerUri = "tcp://" + DOCKER_HOST + ":9090";
 		String[] argsIngestor = {
           	  "--myIps", myIp,
       		  "--scope", scope,
@@ -186,7 +187,7 @@ public class TotalTrafficReaderIntegrationTest {
 	      		  "--parallelism", String.valueOf(flinkParallelism),
 	      		  "--input-stream", outputStreamName,
 	      		  "--controller", controllerUri,
-	      		  "--influxdbUrl", "http://host.docker.internal:8086",
+	      		  "--influxdbUrl", "http://" + DOCKER_HOST + ":8086",
 	      		  "--influxdbVersion", "1",
 	      		  "--influxdbUsername", "admin",
 	      		  "--influxdbPassword", "password",
@@ -214,7 +215,7 @@ public class TotalTrafficReaderIntegrationTest {
         String scope = "integration-test";
 		String myIp = "213.61.202.114,213.61.202.115,213.61.202.116,213.61.202.117,213.61.202.118,213.61.202.119,213.61.202.120,213.61.202.121,213.61.202.122,213.61.202.123,213.61.202.124,213.61.202.125,213.61.202.126";
 		String outputStreamName = "total-traffic";
-		String controllerUri = "tcp://host.docker.internal:9090";
+		String controllerUri = "tcp://" + DOCKER_HOST + ":9090";
 		String[] argsIngestor = {
           	  "--myIps", myIp,
       		  "--scope", scope,
@@ -246,7 +247,7 @@ public class TotalTrafficReaderIntegrationTest {
 		String myIp = "213.61.202.114,213.61.202.115,213.61.202.116,213.61.202.117,213.61.202.118,213.61.202.119,213.61.202.120,213.61.202.121,213.61.202.122,213.61.202.123,213.61.202.124,213.61.202.125,213.61.202.126";
 
 		String outputStreamName = "total-traffic";
-		String controllerUri = "tcp://host.docker.internal:9090";
+		String controllerUri = "tcp://" + DOCKER_HOST + ":9090";
         
 		String[] argsWriter = {
 				
@@ -255,7 +256,7 @@ public class TotalTrafficReaderIntegrationTest {
 	      		  "--parallelism", String.valueOf(flinkParallelism),
 	      		  "--input-stream", outputStreamName,
 	      		  "--controller", controllerUri,
-	      		  "--influxdbUrl", "http://host.docker.internal:8086",
+	      		  "--influxdbUrl", "http://" + DOCKER_HOST + ":8086",
 	      		  "--influxdbVersion", "1",
 	      		  "--influxdbUsername", "admin",
 	      		  "--influxdbPassword", "password",
@@ -283,7 +284,7 @@ public class TotalTrafficReaderIntegrationTest {
 		String myIp = "213.61.202.114,213.61.202.115,213.61.202.116,213.61.202.117,213.61.202.118,213.61.202.119,213.61.202.120,213.61.202.121,213.61.202.122,213.61.202.123,213.61.202.124,213.61.202.125,213.61.202.126";
 
 		String outputStreamName = "total-traffic";
-		String controllerUri = "tcp://host.docker.internal:9090";
+		String controllerUri = "tcp://" + DOCKER_HOST + ":9090";
 		String[] argsIngestor = {
           	  "--myIps", myIp,
       		  "--scope", scope,
@@ -312,7 +313,7 @@ public class TotalTrafficReaderIntegrationTest {
 	      		  "--parallelism", String.valueOf(flinkParallelism),
 	      		  "--input-stream", outputStreamName,
 	      		  "--controller", controllerUri,
-	      		  "--influxdbUrl", "http://host.docker.internal:8086",
+	      		  "--influxdbUrl", "http://" + DOCKER_HOST + ":8086",
 	      		  "--influxdbVersion", "1",
 	      		  "--influxdbUsername", "admin",
 	      		  "--influxdbPassword", "password",

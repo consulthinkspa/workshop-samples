@@ -2,52 +2,27 @@ package it.consulthink.oe.flink.moa;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Date;
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.Hashtable;
-import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
+import java.util.Random;
 import java.util.Set;
 import java.util.stream.Stream;
 
-import javax.xml.crypto.KeySelector;
-
 import org.apache.flink.api.common.functions.FilterFunction;
-import org.apache.flink.api.common.functions.FlatMapFunction;
-import org.apache.flink.api.common.functions.MapFunction;
-import org.apache.flink.api.common.functions.ReduceFunction;
-import org.apache.flink.api.common.state.MapState;
 import org.apache.flink.api.common.state.MapStateDescriptor;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
-import org.apache.flink.api.common.typeinfo.TypeHint;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
-import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
-import org.apache.flink.api.java.tuple.Tuple4;
 import org.apache.flink.api.java.typeutils.MapTypeInfo;
-import org.apache.flink.api.java.typeutils.MultisetTypeInfo;
-import org.apache.flink.api.java.typeutils.PojoTypeInfo;
 import org.apache.flink.streaming.api.TimeCharacteristic;
-import org.apache.flink.streaming.api.datastream.AllWindowedStream;
 import org.apache.flink.streaming.api.datastream.BroadcastConnectedStream;
 import org.apache.flink.streaming.api.datastream.BroadcastStream;
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.datastream.KeyedStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
-import org.apache.flink.streaming.api.datastream.WindowedStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.co.KeyedBroadcastProcessFunction;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.streaming.api.functions.timestamps.BoundedOutOfOrdernessTimestampExtractor;
-import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction;
-import org.apache.flink.streaming.api.windowing.assigners.SlidingEventTimeWindows;
-import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
 import org.apache.flink.streaming.api.windowing.time.Time;
-import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
 import org.apache.flink.util.Collector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,8 +31,10 @@ import com.dellemc.oe.serialization.JsonDeserializationSchema;
 import com.dellemc.oe.serialization.JsonSerializationSchema;
 import com.dellemc.oe.util.AbstractApp;
 import com.dellemc.oe.util.AppConfiguration;
+import com.yahoo.labs.samoa.instances.Attribute;
 import com.yahoo.labs.samoa.instances.DenseInstance;
-import com.yahoo.labs.samoa.instances.InstanceImpl;
+import com.yahoo.labs.samoa.instances.Instances;
+import com.yahoo.labs.samoa.instances.InstancesHeader;
 
 import io.pravega.connectors.flink.FlinkPravegaReader;
 import io.pravega.connectors.flink.FlinkPravegaWriter;
@@ -113,7 +90,7 @@ public class AnomalyReader extends AbstractApp {
         SourceFunction<NMAJSONData> sourceFunction = getSourceFunction(pravegaConfig, inputStreamName);
         LOG.info("==============  SourceFunction  =============== " + sourceFunction);
 
-        DataStream<NMAJSONData> source = env.addSource(sourceFunction).name("InputSource");
+        DataStream<NMAJSONData> source = env.addSource(sourceFunction).name("Pravega."+inputStreamName);
         LOG.info("==============  Source  =============== " + source);
 
         
@@ -128,7 +105,7 @@ public class AnomalyReader extends AbstractApp {
         FlinkPravegaWriter<Anomaly> sink = getSinkFunction(pravegaConfig, outputStreamName);
 
         dataStream
-        .addSink(sink).name("NMAAnomalyReaderStream");
+        .addSink(sink).name("Pravega."+outputStreamName);
 
         // create another output sink to print to stdout for verification
         dataStream.printToErr();
@@ -168,13 +145,31 @@ public class AnomalyReader extends AbstractApp {
 	}	
 
 	public static DenseInstance toDenseInstance(NMAJSONData data) {
-		DenseInstance instance = new DenseInstance(3);
+		
+		// generates the name of the features which is called as InstanceHeader
+		ArrayList<Attribute> attributes = new ArrayList<Attribute>();
+		attributes.add(new Attribute("packets"));
+		attributes.add(new Attribute("bytesin"));
+		attributes.add(new Attribute("bytesout"));
+		InstancesHeader streamHeader = new InstancesHeader(new Instances(data.getClass().getName(),attributes, attributes.size()));
+
+
 		double packets = Math.min((data.getPkts())/((double)NMAJSONDataGenerator.MAX_PACKETS ), 1d);
 		double bytesin = Math.min((data.getBytesin())/((double)NMAJSONDataGenerator.MAX_BYTESIN ), 1d);
 		double bytesout = Math.min((data.getBytesout())/((double)NMAJSONDataGenerator.MAX_BYTESOUT ), 1d);
-		instance.setValue(0, packets);
-		instance.setValue(1, bytesin );
-		instance.setValue(2, bytesout);
+		
+//		DenseInstance instance = new DenseInstance(3);		
+//		instance.setValue(0, packets);
+//		instance.setValue(1, bytesin );
+//		instance.setValue(2, bytesout);
+		
+		double[] d = new double[attributes.size()];
+		d[0] = packets;
+		d[1] = bytesin;
+		d[2] = bytesout;
+		DenseInstance instance = new DenseInstance(1.0, d);
+		instance.setDataset(streamHeader);		
+		
 		return instance;
 	}
 
@@ -238,7 +233,7 @@ public class AnomalyReader extends AbstractApp {
 					.filter(new FilterFunction<Anomaly>() {
 						@Override
 						public boolean filter(Anomaly t) throws Exception {
-							return (t.getAssignedCluster() == null || t.getMaxProbability() == 0d);
+							return (t.getAssignedClusterCenter() == null || t.getAssignedClusterCenter().length == 0 || t.getMaxProbability() == 0d);
 						}
 					});
 		
@@ -357,15 +352,15 @@ public class AnomalyReader extends AbstractApp {
 				
 				ctx.getBroadcastState(kmStateDesc).put(STREAM_KM, value);
 				
-				LOG.info(STREAM_KM+" "+value.getClass());
-				LOG.info("Context"+" "+ctx.getClass());
-				LOG.info("Collector"+" "+out.getClass());
+				LOG.info(STREAM_KM+" "+value.getClass().getName());
+				LOG.info("Context"+" "+ctx.getClass().getName());
+				LOG.info("Collector"+" "+out.getClass().getName());
 				
 				Clustering clusteringResult = value.getClusteringResult();
 				if (clusteringResult != null) {
-					LOG.info("StreamKM clusteringResult"+" "+clusteringResult);
-//					LOG.info("StreamKM clusteringResult size"+" "+clusteringResult.size());
-//					LOG.info("StreamKM clusteringResult dimension"+" "+clusteringResult.dimension());					
+//					LOG.info("StreamKM clusteringResult"+" "+clusteringResult);
+					LOG.info("StreamKM clusteringResult size"+" "+clusteringResult.size());
+					LOG.info("StreamKM clusteringResult dimension"+" "+clusteringResult.dimension());					
 				}
 
 				

@@ -164,11 +164,11 @@ public class NMAJSONDataGenerator {
 
 			@Override
 			public NMAJSONData get() {
-//				try {
-//					Thread.sleep(1 + r.nextInt(1000));
-//				} catch (Throwable e) {
-//					e.printStackTrace();
-//				}
+				try {
+					Thread.sleep(70 + r.nextInt(30));
+				} catch (Throwable e) {
+					//NOP
+				}
 				return r.nextInt(95) == 0 ? generateAnomaly(myIps) : generateStandard(myIps);
 			}
 			
@@ -183,6 +183,11 @@ public class NMAJSONDataGenerator {
 		return Stream.generate(new Supplier<NMAJSONData>() {
 			@Override
 			public NMAJSONData get() {
+				try {
+					Thread.sleep(70 + r.nextInt(30));
+				} catch (Throwable e) {
+					//NOP
+				}				
 				return generateStandard(myIps);
 			}
 			

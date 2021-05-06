@@ -23,6 +23,7 @@ import io.pravega.client.stream.EventStreamWriter;
 import io.pravega.client.stream.EventWriterConfig;
 import io.pravega.client.stream.ScalingPolicy;
 import io.pravega.client.stream.StreamConfiguration;
+import it.consulthink.oe.ingest.NMAJSONDataGenerator.NMAJSONDataAnomaly;
 import it.consulthink.oe.model.NMAJSONData;
 
 /**
@@ -52,18 +53,30 @@ public class NMAJSONInfiniteWriter implements Runnable{
             ClientConfig config = appConfiguration.getPravegaConfig().getClientConfig();
             
 			StreamConfig stream = appConfiguration.getInputStreamConfig();
+			StreamConfig streamAnomaly = stream.clone();
+			String streamAnomalyName = streamAnomaly.getStream().getStreamName() + "-anomaly";
+			streamAnomaly.updateStream(streamAnomaly.getStream().getScope(), streamAnomalyName);
+			
 	        
             boolean  streamok = createStream(stream);
+            boolean  streamAnomalyOk = createStream(streamAnomaly);
 
             
             EventStreamClientFactory clientFactory = EventStreamClientFactory.withScope(scope, config);
             // Create  Pravega event writer
 
             JsonSerializer<NMAJSONData> serializer = new JsonSerializer<NMAJSONData>(NMAJSONData.class);
+			EventWriterConfig eventWriterConfig = EventWriterConfig.builder().build();
+			
 			EventStreamWriter<NMAJSONData> writer = clientFactory.createEventWriter(
                     streamName,
                     serializer,
-                    EventWriterConfig.builder().build());
+                    eventWriterConfig);
+			
+			EventStreamWriter<NMAJSONData> writerAnomaly = clientFactory.createEventWriter(
+					streamAnomalyName,
+                    serializer,
+                    eventWriterConfig);			
             
                       
 
@@ -79,8 +92,12 @@ public class NMAJSONInfiniteWriter implements Runnable{
 			.map(data -> {
 				CompletableFuture<Void> result = null;
 				try {
-					System.err.println("Sending  "+data+ " >> " + new String(serializer.serializeToByteArray(data),  "UTF-8"));
+//					System.err.println("Sending  "+data+ " >> " + new String(serializer.serializeToByteArray(data),  "UTF-8"));
 					result = writer.writeEvent(data);
+					if (((NMAJSONData) data) instanceof NMAJSONDataAnomaly) {
+						NMAJSONDataAnomaly anomaly = (NMAJSONDataAnomaly) data;
+						writerAnomaly.writeEvent(anomaly);
+					}
 				} catch (Throwable e) {
 					LOG.error("Error Sending "+data+" " + e.getMessage());
 				}

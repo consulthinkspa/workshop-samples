@@ -15,6 +15,7 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.streaming.util.serialization.DeserializationSchema;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 
 public class JsonDeserializationSchema<T> implements DeserializationSchema<T> {
     private Class<T> valueType;
@@ -27,6 +28,11 @@ public class JsonDeserializationSchema<T> implements DeserializationSchema<T> {
     public T deserialize(byte[] message) throws IOException {
         ObjectMapper objectMapper = new ObjectMapper();
         T readValue = objectMapper.readValue(message, valueType);
+        try {
+			System.out.println("JsonDeserializationSchema << " + new String(message, "UTF-8"));
+		} catch (Throwable e) {
+			//NOP
+		}
         System.out.println("JsonDeserializationSchema >> " + readValue);
 		return readValue;
     }

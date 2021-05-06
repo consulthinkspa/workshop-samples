@@ -26,11 +26,11 @@ public class AnomalyReaderIntegrationTest {
 	public static final String DOCKER_COMPOSE_YML = "docker-compose.yml";
 
 	private static final Logger LOG = LoggerFactory.getLogger(AnomalyReaderIntegrationTest.class);
-	private final static int flinkParallelism = 3;
+	private final static int flinkParallelism = 2;
 
 	@ClassRule
 	public static MiniClusterWithClientResource flinkCluster = new MiniClusterWithClientResource(
-			new MiniClusterResourceConfiguration.Builder().setNumberSlotsPerTaskManager(flinkParallelism).setNumberTaskManagers(flinkParallelism)
+			new MiniClusterResourceConfiguration.Builder().setNumberSlotsPerTaskManager(25).setNumberTaskManagers(2)
 					.build());	
 
 	private static String OS = null;

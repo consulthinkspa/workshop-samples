@@ -4,6 +4,7 @@
 package it.consulthink.oe.model;
 
 import java.io.Serializable;
+import java.util.Arrays;
 
 import org.apache.flink.api.java.tuple.Tuple3;
 
@@ -18,9 +19,13 @@ import moa.cluster.Cluster;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Anomaly implements Serializable{
 	
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 	public NMAJSONData data;
 	public Double maxProbability;
-	public Cluster assignedCluster;
+	public double[] assignedClusterCenter;
 
 	/**
 	 * 
@@ -33,14 +38,11 @@ public class Anomaly implements Serializable{
 		super();
 		this.data = data;
 		this.maxProbability = maxProbability;
-		this.assignedCluster = assignedCluster;
+		this.assignedClusterCenter = assignedCluster != null ? assignedCluster.getCenter() : null;
 	}
 	
 	public Anomaly(Tuple3<NMAJSONData, Double, Cluster> t) {
-		super();
-		this.data = t.f0;
-		this.maxProbability = t.f1;
-		this.assignedCluster = t.f2;
+		this(t.f0, t.f1, t.f2);
 	}
 
 	public NMAJSONData getData() {
@@ -59,13 +61,7 @@ public class Anomaly implements Serializable{
 		this.maxProbability = maxProbability;
 	}
 
-	public Cluster getAssignedCluster() {
-		return assignedCluster;
-	}
 
-	public void setAssignedCluster(Cluster assignedCluster) {
-		this.assignedCluster = assignedCluster;
-	}
 
 	@Override
 	public int hashCode() {
@@ -90,6 +86,20 @@ public class Anomaly implements Serializable{
 		} else if (!data.equals(other.data))
 			return false;
 		return true;
+	}
+
+	public double[] getAssignedClusterCenter() {
+		return assignedClusterCenter;
+	}
+
+	public void setAssignedClusterCenter(double[] assignedClusterCenter) {
+		this.assignedClusterCenter = assignedClusterCenter;
+	}
+
+	@Override
+	public String toString() {
+		return "Anomaly [data=" + data + ", maxProbability=" + maxProbability + ", assignedClusterCenter="
+				+ Arrays.toString(assignedClusterCenter) + "]";
 	}	
 	
 

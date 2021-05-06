@@ -36,6 +36,10 @@ dependencies {
     }
 }
 
+shadowJar {
+  zip64 true
+}
+
 // Build examples
 task scriptEventWriter(type: CreateStartScripts) {
     outputDir = file('build/scripts')

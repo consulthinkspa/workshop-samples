@@ -54,5 +54,4 @@ subprojects {
         	url "https://simulation.tudelft.nl/maven/"
         }       
     }
-
 }

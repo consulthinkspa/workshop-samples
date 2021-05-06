@@ -10,6 +10,7 @@
 
 package com.dellemc.oe.util;
 
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -70,7 +71,7 @@ public class AppConfiguration {
                 result = streamManager.createStream(streamConfig.getStream().getScope(), streamConfig.getStream().getStreamName(), streamConfiguration);
         	}
 
-            log.info("Creating Pravega Stream: " +" "+ streamConfig.getStream().getStreamName() +" "+ streamConfig.getStream().getScope() + streamConfiguration);
+            log.info("Creating Pravega Stream: " +result+ " "+ streamConfig.getStream().getStreamName() +" "+ streamConfig.getStream().getScope() + streamConfiguration);
         }
         return result;
     }
@@ -193,22 +194,37 @@ public class AppConfiguration {
         return enableRebalance;
     }
 
-    public static class StreamConfig {
-        protected Stream stream;
+    public static class StreamConfig implements Serializable, Cloneable{
+        /**
+		 * 
+		 */
+		private static final long serialVersionUID = 1L;
+		protected Stream stream;
         protected int targetRate;
         protected int scaleFactor;
         protected int minNumSegments;
 
         public StreamConfig(PravegaConfig pravegaConfig, String argPrefix, ParameterTool params) {
-            stream = pravegaConfig.resolve(params.get(argPrefix + "stream", "default"));
-            targetRate = params.getInt(argPrefix + "targetRate", 100000);  // Data rate in KB/sec
-            scaleFactor = params.getInt(argPrefix + "scaleFactor", 2);
-            minNumSegments = params.getInt(argPrefix + "minNumSegments", 3);
+            this.stream = pravegaConfig.resolve(params.get(argPrefix + "stream", "default"));
+            this.targetRate = params.getInt(argPrefix + "targetRate", 100000);  // Data rate in KB/sec
+            this.scaleFactor = params.getInt(argPrefix + "scaleFactor", 2);
+            this.minNumSegments = params.getInt(argPrefix + "minNumSegments", 3);
+        }
+        
+        private StreamConfig(Stream stream, int targetRate, int scaleFactor, int minNumSegments) {
+        	this.stream = stream;
+        	this.targetRate = targetRate;
+        	this.scaleFactor = scaleFactor;
+        	this.minNumSegments = minNumSegments;
         }
         
 
         public Stream getStream() {
             return stream;
+        }
+        
+        public void updateStream(String scope, String name) {
+        	this.stream = Stream.of(scope, name);
         }
 
         public int getTargetRate() {
@@ -228,6 +244,48 @@ public class AppConfiguration {
 		public String toString() {
 			return "StreamConfig [stream=" + stream + ", targetRate=" + targetRate + ", scaleFactor=" + scaleFactor
 					+ ", minNumSegments=" + minNumSegments + "]";
+		}
+
+
+		@Override
+		public int hashCode() {
+			final int prime = 31;
+			int result = 1;
+			result = prime * result + minNumSegments;
+			result = prime * result + scaleFactor;
+			result = prime * result + ((stream == null) ? 0 : stream.hashCode());
+			result = prime * result + targetRate;
+			return result;
+		}
+
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj)
+				return true;
+			if (obj == null)
+				return false;
+			if (getClass() != obj.getClass())
+				return false;
+			StreamConfig other = (StreamConfig) obj;
+			if (minNumSegments != other.minNumSegments)
+				return false;
+			if (scaleFactor != other.scaleFactor)
+				return false;
+			if (stream == null) {
+				if (other.stream != null)
+					return false;
+			} else if (!stream.equals(other.stream))
+				return false;
+			if (targetRate != other.targetRate)
+				return false;
+			return true;
+		}
+		
+		@Override
+		public StreamConfig clone() throws CloneNotSupportedException {
+			StreamConfig result = new StreamConfig(Stream.of(this.stream.getScope(), this.stream.getStreamName()), this.targetRate, this.scaleFactor, this.minNumSegments);
+			return result;
 		}
         
         

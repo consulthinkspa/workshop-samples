@@ -50,6 +50,11 @@ dependencies {
     compile "org.xerial:sqlite-jdbc:3.20.0"
     compile "com.fasterxml.jackson.core:jackson-databind:2.9.1"
 }
+
+shadowJar {
+  zip64 true
+}
+	
 // Build examples
 task scriptJSONReader(type: CreateStartScripts) {
     outputDir = file('build/scripts')
