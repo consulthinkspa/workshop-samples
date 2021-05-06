@@ -99,7 +99,7 @@ public class TotalTrafficReader extends AbstractApp{
 			
             
             FlinkPravegaWriter<TotalTraffic> sink = getSinkFunction(pravegaConfig, outputStreamName);
-            dataStream.printToErr();
+//            dataStream.printToErr();
             DataStreamSink<TotalTraffic> dataStreamSink = dataStream.addSink(sink).name("Pravega."+outputStreamName);
 
             // execute within the Flink environment

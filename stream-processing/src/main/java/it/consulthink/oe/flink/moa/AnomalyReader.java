@@ -98,7 +98,7 @@ public class AnomalyReader extends AbstractApp {
         
         SingleOutputStreamOperator<Anomaly> dataStream = processSource(env, source);
 
-        dataStream.printToErr();
+//        dataStream.printToErr();
         LOG.info("==============  ProcessSource - PRINTED  ===============");
 
 
@@ -108,12 +108,12 @@ public class AnomalyReader extends AbstractApp {
         .addSink(sink).name("Pravega."+outputStreamName);
 
         // create another output sink to print to stdout for verification
-        dataStream.printToErr();
+//        dataStream.printToErr();
         LOG.info("==============  ProcessSink - PRINTED  ===============");
 
 
         try {
-            env.execute("AnomalyReader");
+            env.execute(this.getClass().getName());
         } catch (Exception e) {
             LOG.error("Error executing AnomalyReader...");
         } finally {
