@@ -6,8 +6,12 @@ name: Java CI with Gradle
 on:
   push:
     branches: [ master ]
+    tags-ignore:
+      - "*"    
   pull_request:
     branches: [ master ]
+    tags-ignore:
+      - "*"    
 
 jobs:
   build:
@@ -24,4 +28,15 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
     - name: Build with Gradle
-      run: ./gradlew shadowJAr
+      run: ./gradlew shadowJar
+    - name: Pre-Release
+      uses: "marvinpinto/action-automatic-releases@latest"
+      with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        automatic_release_tag: "latest"
+        prerelease: true
+        title: "Development Build"
+        files: |
+          stream-ingest/build/libs/*.jar
+          stream-readers/build/libs/*.jar
+          stream-progressing/build/libs/*.jar
