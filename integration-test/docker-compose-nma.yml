@@ -3,6 +3,7 @@ services:
 
   pravega:
     image: pravega/pravega:0.8.1
+    restart: always
     #ports:
      # - "12345:12345"
      # - "9090:9090"
@@ -49,9 +50,14 @@ services:
 
   flink-jobmanager:
     image: flink:1.10.1-scala_2.12
+    restart: always
     ports:
       - "8081:8081"
     command: jobmanager
+    volumes:
+      - ../stream-processing/build/libs/stream-to-stream-0.1.0.jar:/opt/flink/usrlib/stream-to-stream-0.1.0.jar
+      - ../stream-readers/build/libs/various-readers-0.1.0.jar:/opt/flink/usrlib/various-readers-0.1.0.jar
+
     environment:
       - |
         FLINK_PROPERTIES=
@@ -59,13 +65,14 @@ services:
 
   flink-taskmanager:
     image: flink:1.10.1-scala_2.12
+    restart: always
     depends_on:
       - flink-jobmanager
     command: taskmanager
     volumes:
       - ../stream-processing/build/libs/stream-to-stream-0.1.0.jar:/opt/flink/usrlib/stream-to-stream-0.1.0.jar
       - ../stream-readers/build/libs/various-readers-0.1.0.jar:/opt/flink/usrlib/various-readers-0.1.0.jar
-    scale: 1
+    #scale: 1
     environment:
       - |
         FLINK_PROPERTIES=
@@ -73,25 +80,28 @@ services:
 
   pravega-nma-ingestor:
     image: java:8
+    restart: always
     depends_on:
       - pravega
     command: java -jar /stream-ingest-0.1.0.jar -m it.consulthink.oe.ingest.NMAJSONInfiniteWriter --limit 1000 --input-stream nma-input --scope nma --controller tcp://pravega:9090 
     volumes:
       - ../stream-ingest/build/libs/stream-ingest-0.1.0.jar:/stream-ingest-0.1.0.jar
-    scale: 1
+    #scale: 1
+
 
   flink-nma-to-influx:
     image: flink:1.10.1-scala_2.12
+    restart: no
     depends_on:
       - flink-jobmanager
       - flink-taskmanager
       - influxdb1
       - pravega
-    command: ./bin/flink run --jobmanager flink-jobmanager:8081  --parallelism 2 -c it.consulthink.oe.readers.AnomalyControlReaderToInflux /opt/flink/usrlib/various-readers-0.1.0.jar --scope nma --input-stream nma-input --controller tcp://pravega:9090 --influxdbUrl http://influxdb1:8086 --influxdbVersion 1 --influxdbUsername admin --influxdbPassword password --influxdbDb nma
+      - pravega-nma-ingestor
+    command: /opt/flink/bin/flink run -d --jobmanager flink-jobmanager:8081  --parallelism 2 -c it.consulthink.oe.readers.AnomalyControlReaderToInflux /opt/flink/usrlib/various-readers-0.1.0.jar --scope nma --input-stream nma-input --controller tcp://pravega:9090 --influxdbUrl http://influxdb1:8086 --influxdbVersion 1 --influxdbUsername admin --influxdbPassword password --influxdbDb nma
     volumes:
-      - ../stream-processing/build/libs/stream-to-stream-0.1.0.jar:/opt/flink/usrlib/stream-to-stream-0.1.0.jar
       - ../stream-readers/build/libs/various-readers-0.1.0.jar:/opt/flink/usrlib/various-readers-0.1.0.jar
-    scale: 1
+    #scale: 1
     environment:
       - |
         FLINK_PROPERTIES=
@@ -99,16 +109,17 @@ services:
 
   flink-nma-anomalycontrol-to-influx:
     image: flink:1.10.1-scala_2.12
+    restart: no
     depends_on:
       - flink-jobmanager
       - flink-taskmanager
       - influxdb1
       - pravega
-    command: ./bin/flink run --jobmanager flink-jobmanager:8081  --parallelism 2 -c it.consulthink.oe.readers.AnomalyControlReaderToInflux /opt/flink/usrlib/various-readers-0.1.0.jar --scope nma --input-stream nma-input-anomaly --controller tcp://pravega:9090 --influxdbUrl http://influxdb1:8086 --influxdbVersion 1 --influxdbUsername admin --influxdbPassword password --influxdbDb nma
+      - pravega-nma-ingestor
+    command: /opt/flink/bin/flink run -d --jobmanager flink-jobmanager:8081  --parallelism 2 -c it.consulthink.oe.readers.AnomalyControlReaderToInflux /opt/flink/usrlib/various-readers-0.1.0.jar --scope nma --input-stream nma-input-anomaly --controller tcp://pravega:9090 --influxdbUrl http://influxdb1:8086 --influxdbVersion 1 --influxdbUsername admin --influxdbPassword password --influxdbDb nma
     volumes:
-      - ../stream-processing/build/libs/stream-to-stream-0.1.0.jar:/opt/flink/usrlib/stream-to-stream-0.1.0.jar
       - ../stream-readers/build/libs/various-readers-0.1.0.jar:/opt/flink/usrlib/various-readers-0.1.0.jar
-    scale: 1
+    #scale: 1
     environment:
       - |
         FLINK_PROPERTIES=
@@ -116,16 +127,16 @@ services:
 
   flink-nma-total-traffic-processor:
     image: flink:1.10.1-scala_2.12
+    restart: no
     depends_on:
       - flink-jobmanager
       - flink-taskmanager
       - influxdb1
       - pravega
-    command: ./bin/flink run --jobmanager flink-jobmanager:8081  --parallelism 2 -c it.consulthink.oe.flink.packetcount.TotalTrafficReader /opt/flink/usrlib/stream-to-stream-0.1.0.jar --scope nma --input-stream nma-input --output-stream total-traffic --controller tcp://pravega:9090 --influxdbUrl http://influxdb1:8086 --influxdbVersion 1 --influxdbUsername admin --influxdbPassword password --influxdbDb nma
+    command: /opt/flink/bin/flink run -d --jobmanager flink-jobmanager:8081  --parallelism 2 -c it.consulthink.oe.flink.packetcount.TotalTrafficReader /opt/flink/usrlib/stream-to-stream-0.1.0.jar --scope nma --input-stream nma-input --output-stream total-traffic --controller tcp://pravega:9090 --influxdbUrl http://influxdb1:8086 --influxdbVersion 1 --influxdbUsername admin --influxdbPassword password --influxdbDb nma
     volumes:
       - ../stream-processing/build/libs/stream-to-stream-0.1.0.jar:/opt/flink/usrlib/stream-to-stream-0.1.0.jar
-      - ../stream-readers/build/libs/various-readers-0.1.0.jar:/opt/flink/usrlib/various-readers-0.1.0.jar
-    scale: 1
+    #scale: 1
     environment:
       - |
         FLINK_PROPERTIES=
@@ -133,32 +144,34 @@ services:
 
   flink-nma-total-traffic-to-influx:
     image: flink:1.10.1-scala_2.12
+    restart: no
     depends_on:
       - flink-jobmanager
       - flink-taskmanager
       - influxdb1
       - pravega
-    command: ./bin/flink run --jobmanager flink-jobmanager:8081  --parallelism 2 -c it.consulthink.oe.readers.TotalTrafficReaderToInflux /opt/flink/usrlib/various-readers-0.1.0.jar --scope nma --parallelism 2 --input-stream total-traffic --controller tcp://pravega:9090 --influxdbUrl http://influxdb1:8086 --influxdbVersion 1 --influxdbUsername admin --influxdbPassword password --influxdbDb nma
+      - flink-nma-total-traffic-processor
+    command: /opt/flink/bin/flink run -d --jobmanager flink-jobmanager:8081  --parallelism 2 -c it.consulthink.oe.readers.TotalTrafficReaderToInflux /opt/flink/usrlib/various-readers-0.1.0.jar --scope nma --parallelism 2 --input-stream total-traffic --controller tcp://pravega:9090 --influxdbUrl http://influxdb1:8086 --influxdbVersion 1 --influxdbUsername admin --influxdbPassword password --influxdbDb nma
     volumes:
-      - ../stream-processing/build/libs/stream-to-stream-0.1.0.jar:/opt/flink/usrlib/stream-to-stream-0.1.0.jar
       - ../stream-readers/build/libs/various-readers-0.1.0.jar:/opt/flink/usrlib/various-readers-0.1.0.jar
-    scale: 1
+    #scale: 1
     environment:
       - |
         FLINK_PROPERTIES=
         jobmanager.rpc.address: flink-jobmanager
 
-  flink-nma-total-traffic-processor:
+  flink-nma-anomaly-processor:
     image: flink:1.10.1-scala_2.12
+    restart: no
     depends_on:
       - flink-jobmanager
       - flink-taskmanager
       - influxdb1
       - pravega
-    command: ./bin/flink run --jobmanager flink-jobmanager:8081  --parallelism 2 -c it.consulthink.oe.flink.packetcount.TotalTrafficReader /opt/flink/usrlib/stream-to-stream-0.1.0.jar --scope nma --input-stream nma-input --output-stream total-traffic --controller tcp://pravega:9090 --influxdbUrl http://influxdb1:8086 --influxdbVersion 1 --influxdbUsername admin --influxdbPassword password --influxdbDb nma
+    command: /opt/flink/bin/flink run -d --jobmanager flink-jobmanager:8081  --parallelism 2 -c it.consulthink.oe.flink.moa.AnomalyReader /opt/flink/usrlib/stream-to-stream-0.1.0.jar --scope nma --input-stream nma-input --output-stream anomaly --controller tcp://pravega:9090 --influxdbUrl http://influxdb1:8086 --influxdbVersion 1 --influxdbUsername admin --influxdbPassword password --influxdbDb nma
     volumes:
       - ../stream-processing/build/libs/stream-to-stream-0.1.0.jar:/opt/flink/usrlib/stream-to-stream-0.1.0.jar
-    scale: 1
+    #scale: 1
     environment:
       - |
         FLINK_PROPERTIES=
@@ -166,18 +179,20 @@ services:
 
   flink-nma-anomaly-to-influx:
     image: flink:1.10.1-scala_2.12
+    restart: no
     depends_on:
       - flink-jobmanager
       - flink-taskmanager
       - influxdb1
       - pravega
-    command: ./bin/flink run --jobmanager flink-jobmanager:8081  --parallelism 2 -c it.consulthink.oe.readers.AnomalyReaderToInflux /opt/flink/usrlib/various-readers-0.1.0.jar --scope nma --input-stream anomaly --controller tcp://pravega:9090 --influxdbUrl http://influxdb1:8086 --influxdbVersion 1 --influxdbUsername admin --influxdbPassword password --influxdbDb nma
+      - flink-nma-anomaly-processor
+    command: /opt/flink/bin/flink run -d --jobmanager flink-jobmanager:8081  --parallelism 2 -c it.consulthink.oe.readers.AnomalyReaderToInflux /opt/flink/usrlib/various-readers-0.1.0.jar --scope nma --input-stream anomaly --controller tcp://pravega:9090 --influxdbUrl http://influxdb1:8086 --influxdbVersion 1 --influxdbUsername admin --influxdbPassword password --influxdbDb nma
     volumes:
-      - ../stream-processing/build/libs/stream-to-stream-0.1.0.jar:/opt/flink/usrlib/stream-to-stream-0.1.0.jar
       - ../stream-readers/build/libs/various-readers-0.1.0.jar:/opt/flink/usrlib/various-readers-0.1.0.jar
-    scale: 1
+    #scale: 1
     environment:
       - |
         FLINK_PROPERTIES=
         jobmanager.rpc.address: flink-jobmanager
+
 

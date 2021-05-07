@@ -121,7 +121,7 @@ public class TrafficByDirectionToInflux extends AbstractApp {
 				try {
 					getInfluxDB()
 							.write(org.influxdb.dto.Point.measurement(inputStreamName)
-									.time(value.f0.getTime(), TimeUnit.MILLISECONDS)
+									.time(toSeconds(value.f0), TimeUnit.SECONDS)
 									.addField("inbound", value.f1.getInbound())
 									.addField("outbound", value.f1.getOutbound())
 									.addField("lateral", value.f1.getLateral())
@@ -149,7 +149,7 @@ public class TrafficByDirectionToInflux extends AbstractApp {
 							.addField("outbound", value.f1.getOutbound())
 							.addField("lateral", value.f1.getLateral())
 		                    .addTag("class", TrafficByDirectionToInflux.class.getSimpleName())
-		                    .time(value.f0.getTime(), WritePrecision.MS);
+		                    .time(toSeconds(value.f0), WritePrecision.S);
 
 		            writeApi.writePoint(point);
 		        }					

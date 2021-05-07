@@ -1,5 +1,8 @@
 package it.consulthink.oe.db;
 
+import java.time.temporal.ChronoUnit;
+import java.util.Date;
+
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
 import org.influxdb.InfluxDB;
@@ -17,7 +20,7 @@ public abstract class InfluxDBSink<IN> extends RichSinkFunction<IN> {
 
 	public InfluxDBSink() {
 		super();
-		this.influxDB_TL = new ThreadLocal<InfluxDB>();
+		influxDB_TL = new ThreadLocal<InfluxDB>();
 	}
 
 	public InfluxDBSink(String influxdbUrl, String influxdbUsername, String influxdbPassword, String influxdbDbName) {
@@ -29,6 +32,12 @@ public abstract class InfluxDBSink<IN> extends RichSinkFunction<IN> {
 	}
 
 	public abstract void invoke(IN value);     
+	
+	public static Long toSeconds(Date time) {
+		if (time == null)
+			return null;
+		return time.toInstant().truncatedTo(ChronoUnit.SECONDS).getEpochSecond();
+	}	
 
 //    @Override
 //    public void invoke(T value) {
@@ -52,12 +61,14 @@ public abstract class InfluxDBSink<IN> extends RichSinkFunction<IN> {
 		if (influxDB_TL == null) {
 			influxDB_TL = new ThreadLocal<InfluxDB>();
 		}
-		if (influxdbUsername == null || influxdbUsername.isEmpty()) {
-			influxDB_TL.set(InfluxDBFactory.connect(influxdbUrl));
-		} else {
-			influxDB_TL.set(InfluxDBFactory.connect(influxdbUrl, influxdbUsername, influxdbPassword));
+		if (influxDB_TL.get() == null) {
+			if (influxdbUsername == null || influxdbUsername.isEmpty()) {
+				influxDB_TL.set(InfluxDBFactory.connect(influxdbUrl));
+			} else {
+				influxDB_TL.set(InfluxDBFactory.connect(influxdbUrl, influxdbUsername, influxdbPassword));
+			}
+			influxDB_TL.get().setDatabase(influxdbDbName);
 		}
-		influxDB_TL.get().setDatabase(influxdbDbName);
 	}
 
 	@Override
@@ -69,10 +80,7 @@ public abstract class InfluxDBSink<IN> extends RichSinkFunction<IN> {
 	}
 	
 	public synchronized InfluxDB getInfluxDB() {
-		if (influxDB_TL == null) {
-			influxDB_TL = new ThreadLocal<InfluxDB>();
-		}
-		if (influxDB_TL.get() == null) {
+		if (influxDB_TL == null || influxDB_TL.get() == null) {
 			this.open(null);
 		}
 		return influxDB_TL.get();

@@ -120,7 +120,7 @@ public class SynInReaderToInflux extends AbstractApp {
 				try {
 					getInfluxDB()
 							.write(org.influxdb.dto.Point.measurement(inputStreamName)
-									.time(value.f0.getTime(), TimeUnit.MILLISECONDS)
+									.time(toSeconds(value.f0), TimeUnit.SECONDS)
 									.addField("value", value.f1)
 									.build());
 				} catch (Exception e) {
@@ -144,7 +144,7 @@ public class SynInReaderToInflux extends AbstractApp {
 		        	com.influxdb.client.write.Point point = com.influxdb.client.write.Point.measurement(inputStreamName)
 		                    .addField("value", value.f1)
 		                    .addTag("class", SynInReaderToInflux.class.getSimpleName())
-		                    .time(value.f0.getTime(), WritePrecision.MS);
+		                    .time(toSeconds(value.f0), WritePrecision.S);
 
 		            writeApi.writePoint(point);
 		        }					

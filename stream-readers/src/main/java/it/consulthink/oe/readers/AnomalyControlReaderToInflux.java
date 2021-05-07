@@ -1,5 +1,8 @@
 package it.consulthink.oe.readers;
 
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalUnit;
+import java.util.Date;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -137,7 +140,7 @@ public class AnomalyControlReaderToInflux extends AbstractApp {
 				try {
 					LOG.info("TO INFLUX_1 "+inputStreamName+" : " + value);
 					getInfluxDB().write(org.influxdb.dto.Point.measurement(inputStreamName)
-							.time(value.getTime().getTime(), TimeUnit.MILLISECONDS)
+							.time(toSeconds(value.getTime()), TimeUnit.SECONDS)
 							.addField("value", 1)
 							.addField("Src_ip", value.getSrc_ip())
 							.addField("Sport", value.getSport())
@@ -153,6 +156,8 @@ public class AnomalyControlReaderToInflux extends AbstractApp {
 				}
 
 			}
+
+
 
 		};
 		return sink;
@@ -190,7 +195,7 @@ public class AnomalyControlReaderToInflux extends AbstractApp {
 							.addField("SessionState", value.getSessionState())
 							.addField("SessionHash", value.getSessionHash())
 							.addTag("class", AnomalyControlReaderToInflux.class.getSimpleName())
-							.time(value.getTime().getTime(), WritePrecision.MS);
+							.time(toSeconds(value.getTime()), WritePrecision.S);
 
 					writeApi.writePoint(point);
 				} catch (Throwable e) {

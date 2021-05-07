@@ -123,7 +123,7 @@ public class DistinctIPReaderToInflux extends AbstractApp {
 				try {
 					getInfluxDB()
 							.write(org.influxdb.dto.Point.measurement(inputStreamName)
-									.time(value.f0.getTime(), TimeUnit.MILLISECONDS)
+									.time(toSeconds(value.f0), TimeUnit.SECONDS)
 									.addField("value", value.f1 + value.f2)
 									.addField("internal", value.f1)
 									.addField("external", value.f2)
@@ -151,7 +151,7 @@ public class DistinctIPReaderToInflux extends AbstractApp {
 							.addField("internal", value.f1)
 							.addField("external", value.f2)
 		                    .addTag("class", DistinctIPReaderToInflux.class.getSimpleName())
-		                    .time(value.f0.getTime(), WritePrecision.MS);
+		                    .time(toSeconds(value.f0), WritePrecision.S);
 
 		            writeApi.writePoint(point);
 		        }					

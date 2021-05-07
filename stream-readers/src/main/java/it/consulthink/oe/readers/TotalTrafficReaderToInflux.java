@@ -169,7 +169,7 @@ public class TotalTrafficReaderToInflux extends AbstractApp {
 				try {
 					LOG.info("TO INFLUX_1: " + value);
 					getInfluxDB().write(org.influxdb.dto.Point.measurement(inputStreamName)
-							.time(value.getTime().getTime(), TimeUnit.MILLISECONDS)
+							.time(toSeconds(value.getTime()), TimeUnit.SECONDS)
 							.addField("value", value.getValue())
 							.build());
 				} catch (Throwable e) {
@@ -206,7 +206,7 @@ public class TotalTrafficReaderToInflux extends AbstractApp {
 					com.influxdb.client.write.Point point = com.influxdb.client.write.Point.measurement(inputStreamName)
 							.addField("value", value.getValue())
 							.addTag("class", TotalTrafficReaderToInflux.class.getSimpleName())
-							.time(value.getTime().getTime(), WritePrecision.MS);
+							.time(toSeconds(value.getTime()), WritePrecision.S);
 
 					writeApi.writePoint(point);
 				} catch (Throwable e) {

@@ -136,7 +136,7 @@ public class AnomalyReaderToInflux extends AbstractApp {
 				try {
 					LOG.info("TO INFLUX_1: " + value);
 					getInfluxDB().write(org.influxdb.dto.Point.measurement(inputStreamName)
-							.time(value.getData().getTime().getTime(), TimeUnit.MILLISECONDS)
+							.time(toSeconds(value.getData().getTime()), TimeUnit.SECONDS)
 							.addField("value", 1)
 							.addField("Src_ip", value.getData().getSrc_ip())
 							.addField("Sport", value.getData().getSport())
@@ -189,7 +189,7 @@ public class AnomalyReaderToInflux extends AbstractApp {
 							.addField("SessionState", value.getData().getSessionState())
 							.addField("SessionHash", value.getData().getSessionHash())
 							.addTag("class", AnomalyReaderToInflux.class.getSimpleName())
-							.time(value.getData().getTime().getTime(), WritePrecision.MS);
+							.time(toSeconds(value.getData().getTime()), WritePrecision.S);
 
 					writeApi.writePoint(point);
 				} catch (Throwable e) {
