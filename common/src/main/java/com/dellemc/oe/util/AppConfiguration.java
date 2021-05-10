@@ -44,6 +44,8 @@ public class AppConfiguration {
     private String message;
     private String csvDir;
     private Set<String> myIps = new HashSet<String>();
+    private Set<String> inputDuplicators = new HashSet<String>();
+    
     private String influxdbUrl =  "http://host.docker.internal:8086";
     
     private String influxdbVersion = "1";
@@ -99,6 +101,9 @@ public class AppConfiguration {
                         "213.61.202.120,213.61.202.121,213.61.202.122," +
                         "213.61.202.123,213.61.202.124,213.61.202.125,213.61.202.126").split(",")));
         
+        inputDuplicators = new HashSet<String>(Arrays.asList(params.get("inputDuplicators",
+                "datacontrol,total-traffic,anomaly,traffic-by-direction,synin,sessions,distinctips").split(",")));
+        
         influxdbUrl =  params.get("influxdbUrl", "http://host.docker.internal:8086");
         influxdbVersion =  params.get("influxdbVersion", "1");
         
@@ -113,9 +118,14 @@ public class AppConfiguration {
 
     public String getCsvDir() {return csvDir;}
 
+    public Set<String> getInputDuplicators() {
+		return inputDuplicators;
+	}
+    
     public Set<String> getMyIps() {
 		return myIps;
 	}
+    
     
     public String getInfluxdbUrl() {
 		return influxdbUrl;

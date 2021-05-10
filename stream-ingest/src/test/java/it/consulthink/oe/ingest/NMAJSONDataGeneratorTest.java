@@ -5,6 +5,7 @@ package it.consulthink.oe.ingest;
 
 import static org.junit.Assert.fail;
 
+import java.io.IOException;
 import java.util.Collections;
 import java.util.Hashtable;
 import java.util.function.Consumer;
@@ -14,6 +15,10 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.dellemc.oe.serialization.JsonDeserializationSchema;
+import com.dellemc.oe.serialization.JsonSerializer;
+
+import akka.remote.artery.Deserializer;
 import it.consulthink.oe.model.NMAJSONData;
 import junit.framework.Assert;
 import scala.collection.mutable.HashTable;
@@ -34,6 +39,29 @@ public class NMAJSONDataGeneratorTest {
 		generateInfiniteStream
 			.limit(5000)
 			.forEach(System.out::println);
+	}
+	
+	@Test
+	public void testGenerateDate() {
+		
+		JsonSerializer<NMAJSONData> serializer = new JsonSerializer<NMAJSONData>(NMAJSONData.class);
+		JsonDeserializationSchema deserializer = new JsonDeserializationSchema(NMAJSONData.class);
+//		deserializer.deserialize(message)
+
+				
+		Stream<NMAJSONData> generateInfiniteStream = NMAJSONDataGenerator.generateInfiniteStream(null);
+		generateInfiniteStream
+			.limit(1)
+			.forEach(data -> {
+				try {
+					System.out.println(deserializer.deserialize(serializer.serializeToByteArray(data)));
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}}
+			);
+		
+		
 	}
 	
 	@Test
