@@ -80,9 +80,13 @@ public class NMADuplicator extends AbstractApp{
             List<AppConfiguration.StreamConfig> outputStreamConfigs = new ArrayList<AppConfiguration.StreamConfig>();
             Set<String> inputDuplicators = appConfiguration.getInputDuplicators();
             for (String outputStreamName : inputDuplicators) {
-				StreamConfig outputStreamConfig = inputStreamConfig.clone();
-				outputStreamConfig.updateStream(outputStreamConfig.getStream().getScope(), outputStreamConfig.getStream().getStreamName() + "-" + outputStreamName);
-				outputStreamConfigs.add(outputStreamConfig);
+				try {
+					StreamConfig outputStreamConfig = inputStreamConfig.clone();
+					outputStreamConfig.updateStream(outputStreamConfig.getStream().getScope(), outputStreamConfig.getStream().getStreamName() + "-" + outputStreamName);
+					outputStreamConfigs.add(outputStreamConfig);
+				} catch (Throwable e) {
+					LOG.error("Error generating duplicated output",e);
+				}
 			}
             if (outputStreamConfigs == null || outputStreamConfigs.isEmpty())
             	System.exit(-1);
@@ -194,7 +198,7 @@ public class NMADuplicator extends AbstractApp{
 		SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd");
 
 		
-		JsonSerializationSchema<NMAJSONData> serializationSchema = new NMAJSONData<NMAJSONData>();
+		JsonSerializationSchema<NMAJSONData> serializationSchema = new JsonSerializationSchema<NMAJSONData>();
 		FlinkPravegaWriter<NMAJSONData> sink = FlinkPravegaWriter.<NMAJSONData>builder()
 		        .withPravegaConfig(pravegaConfig)
 		        .forStream(outputStreamName)
