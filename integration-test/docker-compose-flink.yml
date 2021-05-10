@@ -3,9 +3,14 @@ services:
 
   flink-jobmanager:
     image: flink:1.10.1-scala_2.12
+    restart: always
     ports:
       - "8081:8081"
     command: jobmanager
+    volumes:
+      - ../stream-processing/build/libs/stream-to-stream-0.1.0.jar:/opt/flink/usrlib/stream-to-stream-0.1.0.jar
+      - ../stream-readers/build/libs/various-readers-0.1.0.jar:/opt/flink/usrlib/various-readers-0.1.0.jar
+
     environment:
       - |
         FLINK_PROPERTIES=
@@ -13,15 +18,18 @@ services:
 
   flink-taskmanager:
     image: flink:1.10.1-scala_2.12
+    restart: always
     depends_on:
       - flink-jobmanager
     command: taskmanager
     volumes:
       - ../stream-processing/build/libs/stream-to-stream-0.1.0.jar:/opt/flink/usrlib/stream-to-stream-0.1.0.jar
       - ../stream-readers/build/libs/various-readers-0.1.0.jar:/opt/flink/usrlib/various-readers-0.1.0.jar
-    scale: 1
+    deploy:
+      replicas: 2
     environment:
       - |
         FLINK_PROPERTIES=
         jobmanager.rpc.address: flink-jobmanager
-        taskmanager.numberOfTaskSlots: 2 
+        taskmanager.memory.process.size: 8192mb
+        #taskmanager.memory.flink.size: 

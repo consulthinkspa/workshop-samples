@@ -11,7 +11,7 @@ services:
     environment:
       JAVA_OPTS: |
         -Dpravegaservice.service.published.host.nameOrIp=pravega
-        -Xmx2048m
+        -Xmx4096m
         -XX:OnError="kill -9 p%"
         -XX:+ExitOnOutOfMemoryError
         -XX:+CrashOnOutOfMemoryError
