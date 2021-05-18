@@ -11,15 +11,15 @@ public class SessionPacketFrequency extends Session{
 
 	// client to server: c2s
 	public int c2sPacketsPerSecond;
-	public int c2sBurstDuration;
+	public long c2sBurstDuration;
 	public int c2sBurstSize;
-	public int c2sBurstMeanPktSize;
+	public double c2sBurstMeanPktSize;
 
 	// server to client: s2c
 	public int s2cPacketsPerSecond;
-	public int s2cBurstDuration;
+	public long s2cBurstDuration;
 	public int s2cBurstSize;
-	public int s2cBurstMeanPktSize;
+	public double s2cBurstMeanPktSize;
 
 
 	// total
@@ -45,6 +45,24 @@ public class SessionPacketFrequency extends Session{
 		this.packetsPerSecond = packetsPerSecond;
 	}
 
+
+	public SessionPacketFrequency(Date time, Inet4Address srcIp, Inet4Address dstIp, int srcPort, int dstPort,
+								  long c2sBurstDuration, int c2sBurstSize, double c2sBurstMeanPktSize,
+								  long s2cBurstDuration, int s2cBurstSize, double s2cBurstMeanPktSize) {
+
+		super(time, srcIp, dstIp, srcPort, dstPort);
+		this.c2sBurstDuration = c2sBurstDuration;
+		this.c2sBurstSize = c2sBurstSize;
+		this.c2sBurstMeanPktSize = c2sBurstMeanPktSize;
+
+		this.s2cBurstDuration = s2cBurstDuration;
+		this.s2cBurstSize = s2cBurstSize;
+		this.s2cBurstMeanPktSize = s2cBurstMeanPktSize;
+
+	}
+
+
+
 	public SessionPacketFrequency(Tuple5<Date, String, String, Integer, Integer> t) {
 		super(t);
 	}
@@ -59,7 +77,7 @@ public class SessionPacketFrequency extends Session{
 		this.c2sPacketsPerSecond = c2sPacketsPerSecond;
 	}
 
-	public int getC2sBurstDuration() {
+	public long getC2sBurstDuration() {
 		return c2sBurstDuration;
 	}
 
@@ -75,7 +93,7 @@ public class SessionPacketFrequency extends Session{
 		this.c2sBurstSize = c2sBurstSize;
 	}
 
-	public int getC2sBurstMeanPktSize() {
+	public double getC2sBurstMeanPktSize() {
 		return c2sBurstMeanPktSize;
 	}
 
@@ -91,7 +109,7 @@ public class SessionPacketFrequency extends Session{
 		this.s2cPacketsPerSecond = s2cPacketsPerSecond;
 	}
 
-	public int getS2cBurstDuration() {
+	public long getS2cBurstDuration() {
 		return s2cBurstDuration;
 	}
 
@@ -107,7 +125,7 @@ public class SessionPacketFrequency extends Session{
 		this.s2cBurstSize = s2cBurstSize;
 	}
 
-	public int getS2cBurstMeanPktSize() {
+	public double getS2cBurstMeanPktSize() {
 		return s2cBurstMeanPktSize;
 	}
 
