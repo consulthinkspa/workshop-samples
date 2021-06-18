@@ -226,7 +226,7 @@ public class NMAPacketDataGenerator {
 			String[] a = str.split(",");
 			ips = Arrays.asList(a);			
 		}
-		else if (macs == null || macs.isEmpty()) {
+		if (macs == null || macs.isEmpty()) {
 			String str = ""
 					+ "00:d7:8f:29:ea:cc,"
 					+ "00:00:5e:00:01:72,"
@@ -315,7 +315,71 @@ public class NMAPacketDataGenerator {
 	}
 
 
+	public static NMAPacketData generateStandardSingleSession() {
 
+
+
+		NMAPacketData result = null;
+
+		Date time = new Date(System.currentTimeMillis());
+
+		// generate Layer 2 data
+		String src_mac = "aa:bb:cc:dd:ee:ff";
+		String dst_mac = "ab:cd:de:fa:ab:cd";
+
+		int vlan = r.nextInt(10);
+		int	eth_type = 2048;
+
+
+		// generate Layer 3 data
+
+
+		int l3_header_len = generateL3_header_len();
+		int tos = generateTos();
+
+		int ttl = generateTtl();
+		int ip_proto = generateIpProto();
+
+		String src_ip = "10.10.10.1";
+		String dst_ip = "192.168.1.2";
+
+		// generate layer 4 data
+
+		int dport = 443;
+		int sport = 12345;
+
+
+
+		int l4_header_len = generateL4_header_len();
+		int window_size = generateWindowSize();
+
+
+		boolean syn = false;
+		boolean ack = false;
+		boolean fin = false;
+		boolean rst = false;
+
+		int chance = r.nextInt(100);
+
+		if (chance <= 20) {
+			syn = true;
+		} else if (chance <= 70) {
+			ack = true;
+		} else if (chance <= 90) {
+			fin = true;
+		} else {
+			rst = true;
+		}
+
+		int size = generateSize();
+		int l3_total_len = size - 14;
+
+		result = new NMAPacketData( time, src_mac, dst_mac, vlan, eth_type, l3_header_len, tos, l3_total_len, ttl,
+				ip_proto, src_ip, dst_ip, sport, dport, l4_header_len, window_size, syn, ack, fin, rst, size);
+
+
+		return result;
+	}
 
 
 	public static class NMAPacketDataAnomaly extends NMAPacketData{

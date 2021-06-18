@@ -6,7 +6,6 @@ import org.apache.commons.math3.exception.NullArgumentException;
 
 import java.io.Serializable;
 import java.math.BigInteger;
-import java.net.Inet4Address;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.Objects;
@@ -41,8 +40,8 @@ public static final String RESET = "RESET";
 	public int l3_total_len;
 	public int ttl;
 	public int ip_proto;
-	public Inet4Address src_ip;
-	public Inet4Address dst_ip;
+	public String src_ip;
+	public String dst_ip;
 
 	// layer 4
 	public int sport;
@@ -93,8 +92,8 @@ public static final String RESET = "RESET";
 		this.l3_total_len = l3_total_len;
 		this.ttl = ttl;
 		this.ip_proto = ip_proto;
-		this.src_ip = parseIP(src_ip);
-		this.dst_ip = parseIP(dst_ip);
+		this.src_ip = src_ip;
+		this.dst_ip = dst_ip;
 		this.sport = sport;
 		this.dport = dport;
 		this.l4_header_len = l4_header_len;
@@ -127,20 +126,20 @@ public static final String RESET = "RESET";
 
 	}
 
-	private Inet4Address parseIP(String ip) {
-		try{
-
-			if(ip == null){
-				throw new NullArgumentException();
-			}
-
-			return (Inet4Address) Inet4Address.getByName(ip);
-
-		} catch (Exception x) {
-			x.printStackTrace();
-			return null;
-		}
-	}
+//	private Inet4Address parseIP(String ip) {
+//		try{
+//
+//			if(ip == null){
+//				throw new NullArgumentException();
+//			}
+//
+//			return (Inet4Address) Inet4Address.getByName(ip);
+//
+//		} catch (Exception x) {
+//			x.printStackTrace();
+//			return null;
+//		}
+//	}
 
 	private byte[] parseMAC(String mac) {
 
@@ -232,11 +231,11 @@ public static final String RESET = "RESET";
 		return ip_proto;
 	}
 
-	public Inet4Address getSrc_ip() {
+	public String getSrc_ip() {
 		return src_ip;
 	}
 
-	public Inet4Address getDst_ip() {
+	public String getDst_ip() {
 		return dst_ip;
 	}
 
@@ -336,11 +335,11 @@ public static final String RESET = "RESET";
 		this.ip_proto = ip_proto;
 	}
 
-	public void setSrc_ip(Inet4Address src_ip) {
+	public void setSrc_ip(String src_ip) {
 		this.src_ip = src_ip;
 	}
 
-	public void setDst_ip(Inet4Address dst_ip) {
+	public void setDst_ip(String dst_ip) {
 		this.dst_ip = dst_ip;
 	}
 
